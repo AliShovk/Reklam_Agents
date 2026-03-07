@@ -1,0 +1,24 @@
+[Unit]
+Description=Reklam AI Agent Farm
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=reklam
+Group=reklam
+WorkingDirectory=/opt/reklam-agents
+ExecStart=/usr/bin/npx tsx src/index.ts
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/reklam-agents/farm.log
+StandardError=append:/var/log/reklam-agents/error.log
+EnvironmentFile=/opt/reklam-agents/.env
+
+# Безопасность
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/reklam-agents /var/log/reklam-agents
+
+[Install]
+WantedBy=multi-user.target
