@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  farm:
+    build: .
+    container_name: reklam-farm
+    restart: unless-stopped
+    ports:
+      - "3333:3333"
+    env_file:
+      - .env
+    volumes:
+      - farm-logs:/app/logs
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: reklam-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  farm-logs:
+  redis-data:
