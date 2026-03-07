@@ -8,9 +8,14 @@ let _client: OpenAI | null = null;
 
 function getClient(): OpenAI {
   if (!_client) {
+    const baseURL = process.env.OPENAI_BASE_URL || undefined;
     _client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      ...(baseURL ? { baseURL } : {}),
     });
+    if (baseURL) {
+      log.info(`LLM using custom endpoint: ${baseURL}`);
+    }
   }
   return _client;
 }
