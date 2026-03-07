@@ -50,7 +50,7 @@ export async function llmChat(request: LLMRequest): Promise<LLMResponse> {
         { role: "user", content: request.userMessage },
       ],
       temperature: request.temperature ?? 0.7,
-      max_tokens: request.maxTokens ?? 4096,
+      max_tokens: request.maxTokens ?? 2048,
       ...(request.jsonMode ? { response_format: { type: "json_object" } } : {}),
     });
 
