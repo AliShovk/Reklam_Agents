@@ -1,73 +1,43 @@
-import { loadFarmConfig } from "./core/config.js";
-import { createSubLogger } from "./core/logger.js";
-import { eventBus } from "./core/event-bus.js";
+/**
+ * Reklam Agents — AI Marketing Farm
+ * Главный файл приложения
+ */
+
+import { logger, loadFarmConfig, initializeLLM, GrowthLoop, eventBus } from "./core/index.js";
+import { createDashboard } from "./dashboard/server.js";
 import { messageQueue } from "./core/message-queue.js";
 import { knowledgeBase } from "./core/knowledge-base.js";
-import { GrowthLoop } from "./core/growth-loop.js";
-import { BaseAgent } from "./core/base-agent.js";
-import {
-  SupervisorAgent,
-  StrategyAgent,
-  ProductAgent,
-  ProgrammingAgent,
-  ContentAgent,
-  PostingAgent,
-  OutreachAgent,
-  EngagementAgent,
-  SeoAgent,
-  InfrastructureAgent,
-  ObservabilityAgent,
-} from "./agents/index.js";
-import type { Goal, FarmConfig, GrowthMetrics } from "./core/types.js";
 
-const log = createSubLogger("farm");
+// Агенты
+import { SupervisorAgent } from "./agents/supervisor.js";
+import { StrategyAgent } from "./agents/strategy.js";
+import { ProductAgent } from "./agents/product.js";
+import { ProgrammingAgent } from "./agents/programming.js";
+import { ContentAgent } from "./agents/marketing/content.js";
+import { PostingAgent } from "./agents/marketing/posting.js";
+import { OutreachAgent } from "./agents/marketing/outreach.js";
+import { EngagementAgent } from "./agents/marketing/engagement.js";
+import { SeoAgent } from "./agents/seo.js";
+import { InfrastructureAgent } from "./agents/infrastructure.js";
+
+const log = logger.child({ subsystem: "farm" });
 
 /**
- * AgentFarm — оркестратор всей фермы AI-агентов.
- * 
- * Запускает всех агентов, управляет циклом роста,
- * предоставляет API для мониторинга и управления.
- * 
- * Архитектура:
- * 
- *                 SUPERVISOR AI
- *                      │
- *               Goal Engine
- *                      │
- *               Strategy Agent
- *                      │
- *               Task Distribution
- *                      │
- *         ┌────────────┼────────────┐
- *         │            │            │
- *    Product Agents  Marketing   Infrastructure
- *         │          Agents        Agents
- *         │            │            │
- *    Programming    Content      Observability
- *      Agent        Posting
- *                   Outreach
- *                   Engagement
- *                   SEO
+ * AgentFarm — главный класс фермы.
+ * Управляет агентами, циклом роста и дашбордом.
  */
 export class AgentFarm {
-  private config: FarmConfig;
-  private agents: BaseAgent[] = [];
+  private agents: Map<string, any> = new Map();
   private supervisor: SupervisorAgent;
   private growthLoop: GrowthLoop;
-  private startedAt: Date | null = null;
+  private startTime = Date.now();
 
   constructor() {
-    this.config = loadFarmConfig();
-
-    // Initialize supervisor
+    const config = loadFarmConfig();
     this.supervisor = new SupervisorAgent();
 
-    // Initialize growth loop
-    this.growthLoop = new GrowthLoop(this.config.cycleIntervalMs);
-
-    // Initialize all agents
-    this.agents = [
-      this.supervisor,
+    // Создать все агенты
+    const agentInstances = [
       new StrategyAgent(),
       new ProductAgent(),
       new ProgrammingAgent(),
@@ -77,130 +47,138 @@ export class AgentFarm {
       new EngagementAgent(),
       new SeoAgent(),
       new InfrastructureAgent(),
-      new ObservabilityAgent(),
     ];
 
-    log.info(`Farm "${this.config.name}" initialized with ${this.agents.length} agents`);
-  }
-
-  // ─── Lifecycle ────────────────────────────────────────────────────────
-
-  async start(): Promise<void> {
-    log.info("╔══════════════════════════════════════════════╗");
-    log.info("║        🚀 AI AGENT FARM STARTING 🚀         ║");
-    log.info(`║  Name: ${this.config.name.padEnd(37)}║`);
-    log.info(`║  Agents: ${String(this.agents.length).padEnd(35)}║`);
-    log.info(`║  Cycle interval: ${String(this.config.cycleIntervalMs / 1000 + "s").padEnd(27)}║`);
-    log.info("╚══════════════════════════════════════════════╝");
-
-    this.startedAt = new Date();
-
-    // Start all agents
-    for (const agent of this.agents) {
-      try {
-        await agent.start();
-      } catch (err: any) {
-        log.error(`Failed to start agent ${agent.identity.id}: ${err.message}`);
-      }
+    for (const agent of agentInstances) {
+      this.agents.set(agent.identity.id, agent);
     }
 
-    // Start growth loop
-    this.growthLoop.start();
+    this.growthLoop = new GrowthLoop(config.cycleIntervalMs);
 
-    log.info("All agents started. Farm is operational.");
+    log.info(`✅ AgentFarm initialized with ${this.agents.size + 1} agents`);
+  }
+
+  async start(): Promise<void> {
+    try {
+      // 1. Инициализировать LLM (включая GigaChat если настроен)
+      log.info("🚀 Инициализация LLM провайдера...");
+      await initializeLLM();
+      log.info("✅ LLM провайдер готов");
+
+      // 2. Запустить supervisor
+      log.info("🤖 Запуск Supervisor агента...");
+      await this.supervisor.start();
+      this.agents.set(this.supervisor.identity.id, this.supervisor);
+
+      // 3. Запустить остальные агенты
+      log.info("🤖 Запуск всех агентов...");
+      for (const agent of this.agents.values()) {
+        if (agent.identity.id !== this.supervisor.identity.id) {
+          await agent.start();
+        }
+      }
+      log.info(`✅ Все ${this.agents.size} агентов запущены`);
+
+      // 4. Запустить цикл роста
+      log.info("📊 Запуск цикла роста...");
+      this.growthLoop.start();
+
+      // 5. Запустить дашборд
+      const config = loadFarmConfig();
+      const dashboardApp = createDashboard(this);
+      dashboardApp.listen(config.dashboard.port, () => {
+        log.info(`✅ Dashboard доступен: http://localhost:${config.dashboard.port}`);
+      });
+
+      log.info("🎉 AgentFarm полностью запущена");
+    } catch (err: any) {
+      log.error(`❌ Ошибка запуска: ${err.message}`);
+      throw err;
+    }
   }
 
   async stop(): Promise<void> {
-    log.info("Stopping AI Agent Farm...");
+    log.info("🛑 Остановка AgentFarm...");
 
+    // Остановить цикл роста
     this.growthLoop.stop();
 
-    for (const agent of this.agents) {
+    // Остановить все агенты
+    for (const agent of this.agents.values()) {
       try {
         await agent.stop();
       } catch (err: any) {
-        log.error(`Error stopping agent ${agent.identity.id}: ${err.message}`);
+        log.warn(`Failed to stop agent: ${err.message}`);
       }
     }
 
-    log.info("Farm stopped.");
+    log.info("✅ AgentFarm остановлена");
   }
 
-  // ─── Goal Management ─────────────────────────────────────────────────
+  // ─── API для дашборда ───────────────────────────────────────────────
 
-  addGoal(goal: {
-    title: string;
-    description: string;
-    targetMetric: string;
-    targetValue: number;
-    deadline?: Date;
-  }): Goal {
-    return this.supervisor.addGoal(goal);
-  }
+  getStatus() {
+    const agentsList = Array.from(this.agents.values()).map((a) => a.identity);
+    const uptimeMs = Date.now() - this.startTime;
+    const state = this.growthLoop.getState();
 
-  getGoals(): Goal[] {
-    return this.supervisor.getGoals();
-  }
-
-  // ─── Monitoring ──────────────────────────────────────────────────────
-
-  getStatus(): {
-    name: string;
-    uptime: number;
-    agents: Array<{
-      id: string;
-      role: string;
-      name: string;
-      status: string;
-      tasksCompleted: number;
-      tasksFailed: number;
-      tokensUsed: number;
-    }>;
-    queues: Record<string, number>;
-    processing: number;
-    completed: number;
-    failed: number;
-    knowledge: { total: number; byType: Record<string, number> };
-    growthCycle: ReturnType<GrowthLoop["getState"]>;
-    goals: Goal[];
-    metrics: GrowthMetrics;
-  } {
     return {
-      name: this.config.name,
-      uptime: this.startedAt ? Date.now() - this.startedAt.getTime() : 0,
-      agents: this.agents.map((a) => ({
-        id: a.identity.id,
-        role: a.identity.role,
-        name: a.identity.name,
-        status: a.identity.status,
-        tasksCompleted: a.identity.metrics.tasksCompleted,
-        tasksFailed: a.identity.metrics.tasksFailed,
-        tokensUsed: a.identity.metrics.tokensUsed,
-      })),
-      queues: messageQueue.getQueueStats(),
+      name: "Reklam Farm",
+      uptime: uptimeMs,
+      agents: agentsList,
       processing: messageQueue.getProcessingCount(),
       completed: messageQueue.getCompletedCount(),
       failed: messageQueue.getFailedCount(),
       knowledge: knowledgeBase.getStats(),
-      growthCycle: this.growthLoop.getState(),
+      growthCycle: state,
       goals: this.supervisor.getGoals(),
-      metrics: this.supervisor.getMetrics(),
     };
   }
 
-  getAgents(): BaseAgent[] {
-    return [...this.agents];
+  getAgents() {
+    return Array.from(this.agents.values());
   }
 
-  getSupervisor(): SupervisorAgent {
+  getGoals() {
+    return this.supervisor.getGoals();
+  }
+
+  addGoal(goal: any) {
+    return this.supervisor.addGoal(goal);
+  }
+
+  getSupervisor() {
     return this.supervisor;
   }
 
-  getGrowthLoop(): GrowthLoop {
-    return this.growthLoop;
-  }
-
-  getConfig(): FarmConfig {
-    return this.config;
+  getConfig() {
+    return loadFarmConfig();
   }
 }
+
+// ─── Main ────────────────────────────────────────────────────────────
+
+async function main() {
+  const farm = new AgentFarm();
+
+  // Graceful shutdown
+  process.on("SIGINT", async () => {
+    log.info("Received SIGINT, shutting down...");
+    await farm.stop();
+    process.exit(0);
+  });
+
+  process.on("SIGTERM", async () => {
+    log.info("Received SIGTERM, shutting down...");
+    await farm.stop();
+    process.exit(0);
+  });
+
+  // Запустить ферму
+  await farm.start();
+}
+
+main().catch((err) => {
+  log.error(`Fatal error: ${err.message}`, err);
+  process.exit(1);
+});
