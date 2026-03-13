@@ -37,12 +37,16 @@ export class ProgrammingAgent extends BaseAgent {
 
     const code = await this.thinkJson<{
       projectName: string;
+      architecture: string;
       files: Array<{
         path: string;
-        content: string;
+        purpose: string;
         language: string;
       }>;
-      packageJson: Record<string, unknown>;
+      starterFiles: Array<{
+        path: string;
+        content: string;
+      }>;
       buildInstructions: string;
       deployInstructions: string;
       environmentVars: string[];
@@ -72,20 +76,36 @@ Tech stack: ${JSON.stringify(spec?.techStack || [])}
 Pages: ${JSON.stringify(spec?.pages || [])}
 SEO Keywords: ${JSON.stringify(spec?.seoKeywords || [])}
 
-Generate the complete project. Respond in JSON with keys: projectName, files (array of {path, content, language}), packageJson, buildInstructions, deployInstructions, environmentVars`
+Return a compact MVP scaffold, not a full production codebase:
+- files: project file map only, with path/purpose/language
+- starterFiles: at most 3 short starter files
+- each starter file content should stay concise
+
+Respond in JSON with keys: projectName, architecture, files (array of {path, purpose, language}), starterFiles (array of {path, content}), buildInstructions, deployInstructions, environmentVars`
     );
+
+    const projectName = typeof code.projectName === "string" && code.projectName.length > 0 ? code.projectName : (spec?.name || task.title);
+    const files = Array.isArray(code.files)
+      ? code.files.filter((file): file is NonNullable<typeof code.files>[number] => Boolean(file && typeof file === "object" && typeof file.path === "string" && file.path.length > 0))
+      : [];
+    const starterFiles = Array.isArray(code.starterFiles)
+      ? code.starterFiles
+          .filter((file): file is NonNullable<typeof code.starterFiles>[number] => Boolean(file && typeof file === "object" && typeof file.path === "string" && file.path.length > 0 && typeof file.content === "string"))
+          .slice(0, 3)
+      : [];
+    const buildInstructions = typeof code.buildInstructions === "string" && code.buildInstructions.length > 0 ? code.buildInstructions : "Review the scaffold and implement the remaining files.";
 
     // Save generated code to knowledge base
     this.addKnowledge({
       type: "code",
-      title: `Code: ${code.projectName}`,
-      content: `Files: ${code.files?.map((f) => f.path).join(", ")}. Build: ${code.buildInstructions}`,
-      tags: ["code", code.projectName],
+      title: `Code: ${projectName}`,
+      content: `Architecture: ${code.architecture || "N/A"}. Files: ${files.map((f) => f.path).join(", ")}. Build: ${buildInstructions}`,
+      tags: ["code", projectName],
     });
 
-    this.log.info(`Generated project: ${code.projectName} with ${code.files?.length || 0} files`);
+    this.log.info(`Generated project scaffold: ${projectName} with ${files.length} files`);
 
-    return { code };
+    return { code: { ...code, projectName, files, starterFiles, buildInstructions } };
   }
 
   private async createLanding(task: Task): Promise<Record<string, unknown>> {

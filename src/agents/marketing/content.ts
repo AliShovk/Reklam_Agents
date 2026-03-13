@@ -37,9 +37,6 @@ export class ContentAgent extends BaseAgent {
     const content = await this.thinkJson<{
       title: string;
       body: string;
-      summary: string;
-      hashtags: string[];
-      keywords: string[];
       callToAction: string;
       variations: Array<{
         platform: string;
@@ -64,35 +61,50 @@ Topic: ${task.title}
 Details: ${task.description}
 Product context: ${spec ? JSON.stringify({ name: spec.name, features: spec.features }) : "N/A"}
 
-Respond in JSON with keys: title, body, summary, hashtags, keywords, callToAction, variations (adaptations for other platforms)`
+Keep the response compact:
+- body should be concise and publishable, usually under 1200 characters unless channel requires more
+- variations: max 2 items
+- each variation text under 280 characters
+
+Respond in JSON with keys: title, body, callToAction, variations (adaptations for other platforms)`
     );
+
+    const normalizedTitle = typeof content.title === "string" && content.title.length > 0 ? content.title : task.title;
+    const normalizedBody = typeof content.body === "string" && content.body.length > 0 ? content.body : task.description;
+    const normalizedCallToAction = typeof content.callToAction === "string" && content.callToAction.length > 0 ? content.callToAction : "Learn more";
+    const variations = Array.isArray(content.variations)
+      ? content.variations
+          .filter((variation): variation is NonNullable<typeof content.variations>[number] => Boolean(variation && typeof variation === "object"))
+          .filter((variation) => typeof variation.platform === "string" && variation.platform.length > 0 && typeof variation.text === "string" && variation.text.length > 0)
+          .slice(0, 2)
+      : [];
 
     this.addKnowledge({
       type: "content",
-      title: content.title,
-      content: content.body.slice(0, 2000),
-      tags: ["content", contentType, channel, ...content.keywords.slice(0, 5)],
+      title: normalizedTitle,
+      content: normalizedBody.slice(0, 2000),
+      tags: ["content", contentType, channel],
     });
 
     // Create posting task
     this.createSubTask({
       type: "publish_content",
       priority: "medium",
-      title: `Publish: ${content.title}`,
-      description: `Publish to ${channel}. CTA: ${content.callToAction}`,
-      input: { content, channel },
+      title: `Publish: ${normalizedTitle}`,
+      description: `Publish to ${channel}. CTA: ${normalizedCallToAction}`,
+      input: { content: { ...content, title: normalizedTitle, body: normalizedBody, callToAction: normalizedCallToAction, variations }, channel },
       assignedTo: "posting",
     });
 
     // Create variations for other platforms
-    for (const variation of content.variations || []) {
+    for (const variation of variations) {
       if (variation.platform !== channel) {
         this.createSubTask({
           type: "publish_content",
           priority: "low",
-          title: `Cross-post: ${content.title} → ${variation.platform}`,
+          title: `Cross-post: ${normalizedTitle} → ${variation.platform}`,
           description: variation.text.slice(0, 200),
-          input: { content: { ...content, body: variation.text }, channel: variation.platform },
+          input: { content: { ...content, title: normalizedTitle, body: variation.text, callToAction: normalizedCallToAction, variations: [] }, channel: variation.platform },
           assignedTo: "posting",
         });
       }
@@ -103,7 +115,7 @@ Respond in JSON with keys: title, body, summary, hashtags, keywords, callToActio
 
   private async generateArticles(task: Task): Promise<Record<string, unknown>> {
     const keywords = (task.input.keywords as string[]) || [];
-    const count = (task.input.count as number) || 5;
+    const count = Math.min((task.input.count as number) || 5, 2);
 
     const articles = await this.thinkJson<{
       articles: Array<{
@@ -119,11 +131,11 @@ Respond in JSON with keys: title, body, summary, hashtags, keywords, callToActio
 Generate high-quality, SEO-optimized articles.
 
 Requirements:
-- Minimum 800 words per article
+- 500-700 words per article
 - Natural keyword placement (2-3% density)
 - Structured with H2, H3 headers
 - Include practical examples
-- FAQ section at the end
+- One short FAQ section at the end
 - Internal linking placeholders [INTERNAL_LINK: topic]
 - External authority links placeholders [EXTERNAL_LINK: topic]`,
 
@@ -133,7 +145,11 @@ Topic area: ${task.description}
 Respond in JSON with key: articles (array of {title, slug, body, metaDescription, keywords, wordCount})`
     );
 
-    for (const article of articles.articles || []) {
+    const normalizedArticles = Array.isArray(articles.articles)
+      ? articles.articles.filter((article): article is NonNullable<typeof articles.articles>[number] => Boolean(article && typeof article === "object"))
+      : [];
+
+    for (const article of normalizedArticles) {
       this.addKnowledge({
         type: "content",
         title: article.title,
@@ -142,6 +158,6 @@ Respond in JSON with key: articles (array of {title, slug, body, metaDescription
       });
     }
 
-    return { articlesGenerated: articles.articles?.length || 0 };
+    return { articlesGenerated: normalizedArticles.length };
   }
 }
