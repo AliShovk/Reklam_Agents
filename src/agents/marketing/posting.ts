@@ -48,6 +48,12 @@ export class PostingAgent extends BaseAgent {
     }
 
     const content = task.input.content as any;
+    const promotionTarget = typeof content?.targetSite === "string" && content.targetSite.length > 0
+      ? content.targetSite
+      : "masterhacks.ru";
+    const offerName = typeof content?.offerName === "string" && content.offerName.length > 0
+      ? content.offerName
+      : "решение от masterhacks.ru";
 
     // Генерируем пост через LLM
     const post = await this.thinkJson<{
@@ -66,13 +72,19 @@ Rules:
 - Short paragraphs (2-3 sentences max)
 - End with a call-to-action or question
 - Max 4096 characters
-- No Markdown — only HTML tags`,
+- No Markdown — only HTML tags
+- The post should directly promote the target site or offer, not give generic creator advice
+- Mention ${promotionTarget} or ${offerName} explicitly and make the next step obvious`,
 
       `Create a Telegram post about:
 Title: ${content?.title || task.title}
 Body: ${(content?.body || task.description).slice(0, 2000)}
 Tone: professional but friendly
 Target: ${content?.targetAudience || "tech-savvy audience"}
+Promoted site: ${promotionTarget}
+Promoted offer: ${offerName}
+
+Make it promotional-first with a clear reason to click, join, or try now.
 
 Respond in JSON: { text, pinMessage (bool), hasImage (bool), imagePrompt }`,
     );
@@ -132,6 +144,12 @@ Create a poll with 2-8 options. Respond in JSON: { question, options, isAnonymou
   private async publishContent(task: Task): Promise<Record<string, unknown>> {
     const content = task.input.content as any;
     const channel = (task.input.channel as GrowthChannel) || "telegram";
+    const promotionTarget = typeof content?.targetSite === "string" && content.targetSite.length > 0
+      ? content.targetSite
+      : "masterhacks.ru";
+    const offerName = typeof content?.offerName === "string" && content.offerName.length > 0
+      ? content.offerName
+      : "решение от masterhacks.ru";
 
     // Если канал — Telegram и клиент доступен, публикуем реально
     if (channel === "telegram" && getTelegramClient()) {
@@ -159,7 +177,12 @@ Platform formatting rules:
 - youtube: Title, description, tags for video publishing
 - linkedin: Professional with personal story angle
 - tiktok: Caption with hooks and trending hashtags
-- forums: Contextual, helpful reply format`,
+- forums: Contextual, helpful reply format
+
+Important:
+- Prefer direct promotion of the target site or product over generic educational commentary.
+- Keep the offer, differentiator, and CTA visible in the final copy.
+- If the source content is generic, rewrite it into promotional copy for ${promotionTarget} or ${offerName}.`,
 
       `Prepare this content for publishing on ${channel}:
 
@@ -167,6 +190,8 @@ Title: ${content?.title || task.title}
 Body: ${(content?.body || task.description).slice(0, 2000)}
 CTA: ${content?.callToAction || ""}
 Hashtags: ${JSON.stringify(content?.hashtags || [])}
+Promoted site: ${promotionTarget}
+Promoted offer: ${offerName}
 
 Keep the response compact:
 - formattedContent: under 900 characters

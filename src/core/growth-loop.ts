@@ -147,9 +147,9 @@ export class GrowthLoop {
       type: "create_content",
       priority: "medium",
       createdBy: "growth-loop",
-      title: `Content batch — Cycle #${this.state.cycleNumber}`,
-      description: "Create content for all active channels: articles, posts, videos, tutorials.",
-      input: { cycleNumber: this.state.cycleNumber },
+      title: `Promote masterhacks.ru — Content batch #${this.state.cycleNumber}`,
+      description: "Create promotional content for masterhacks.ru and its offers across active channels. Focus on benefits, differentiation, and explicit CTAs instead of generic educational advice.",
+      input: { cycleNumber: this.state.cycleNumber, targetSite: "masterhacks.ru", offerName: "решения и инструменты masterhacks.ru" },
       assignedTo: "content",
     });
   }
@@ -159,9 +159,9 @@ export class GrowthLoop {
       type: "publish_content",
       priority: "medium",
       createdBy: "growth-loop",
-      title: `Publishing sweep — Cycle #${this.state.cycleNumber}`,
-      description: "Publish all ready content to target channels. Optimize timing and format.",
-      input: { cycleNumber: this.state.cycleNumber },
+      title: `Promote masterhacks.ru — Publishing sweep #${this.state.cycleNumber}`,
+      description: "Publish promotional content for masterhacks.ru to target channels. Keep the offer, site, and CTA visible in every post.",
+      input: { cycleNumber: this.state.cycleNumber, targetSite: "masterhacks.ru", offerName: "решения и инструменты masterhacks.ru" },
       assignedTo: "posting",
     });
   }

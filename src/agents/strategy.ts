@@ -76,6 +76,9 @@ Available product types: calculator, landing_page, telegram_bot, web_tool, api_s
 The key insight: create products that match existing search demand (e.g. "renovation calculator"), 
 so each product becomes a traffic funnel with near-zero acquisition cost.
 
+Prioritize direct promotion of the active goal, target site, and concrete offers over generic educational content.
+Every content idea should help drive visits, signups, or usage, not just engagement.
+
 Keep the response compact:
 - channels: max 4 items
 - tactics: max 3 short items per channel
@@ -163,8 +166,8 @@ Respond in JSON with keys: channels, productIdeas, contentPlan, reasoning`
         type: "create_content",
         priority: "medium",
         title: `Create ${contentType}: ${contentTopic}`,
-        description: `Channel: ${contentChannel}. Frequency: ${contentFrequency}`,
-        input: { content },
+        description: `Channel: ${contentChannel}. Frequency: ${contentFrequency}. Make it directly promote the active goal, target site, or product with a clear CTA.`,
+        input: { content: { ...content, targetSite: "masterhacks.ru", offerName: "решение от masterhacks.ru" }, targetSite: "masterhacks.ru" },
         assignedTo: "content",
       });
     }

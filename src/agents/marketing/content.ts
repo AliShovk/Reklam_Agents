@@ -33,6 +33,16 @@ export class ContentAgent extends BaseAgent {
     const spec = task.input.spec as any;
     const channel = contentInput?.channel || "medium";
     const contentType = contentInput?.type || "article";
+    const promotionTarget = typeof task.input.targetSite === "string" && task.input.targetSite.length > 0
+      ? task.input.targetSite
+      : typeof contentInput?.targetSite === "string" && contentInput.targetSite.length > 0
+        ? contentInput.targetSite
+        : "masterhacks.ru";
+    const offerName = typeof spec?.name === "string" && spec.name.length > 0
+      ? spec.name
+      : typeof contentInput?.offerName === "string" && contentInput.offerName.length > 0
+        ? contentInput.offerName
+        : "решение от masterhacks.ru";
 
     const content = await this.thinkJson<{
       title: string;
@@ -55,12 +65,24 @@ Content style guide by platform:
 - linkedin: Professional tone. Personal stories + insights.
 - tiktok: Hook + problem + solution + CTA. Under 60 seconds.
 
-Important: Content must provide REAL value first. Promotion is subtle — embedded in useful content.`,
+Important:
+- The primary goal is direct promotion of the target site/product, not generic education.
+- Mention the promoted product, offer, or site naturally and explicitly.
+- Every piece must explain why the audience should visit, try, or subscribe now.
+- Always include a clear CTA to ${promotionTarget} or the promoted offer.
+- Avoid generic tips that could fit any business if they do not support promotion.`,
 
       `Create ${contentType} for ${channel}:
 Topic: ${task.title}
 Details: ${task.description}
 Product context: ${spec ? JSON.stringify({ name: spec.name, features: spec.features }) : "N/A"}
+Promoted site: ${promotionTarget}
+Promoted offer: ${offerName}
+
+Make this content promotional-first:
+- focus on the benefit, offer, differentiator, and next action
+- reference the promoted site or product directly
+- do not produce abstract creator advice unless it directly supports the promoted offer
 
 Keep the response compact:
 - body should be concise and publishable, usually under 1200 characters unless channel requires more
@@ -143,6 +165,9 @@ Requirements:
 
       `Generate ${count} SEO articles for keywords: ${keywords.join(", ")}
 Topic area: ${task.description}
+
+The articles should attract search traffic that can be converted into visits to masterhacks.ru or a promoted product from the task context.
+Include a natural promotional bridge and CTA where appropriate.
 
 Respond in JSON with key: articles (array of {title, slug, body, metaDescription, keywords, wordCount})`
     );
