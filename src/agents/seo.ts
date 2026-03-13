@@ -44,6 +44,8 @@ export class SeoAgent extends BaseAgent {
         primary: string;
         secondary: string[];
         intent: string;
+        primaryKeyword?: string;
+        secondaryKeywords?: string[];
       }>;
       siteStructure: Array<{
         page: string;
@@ -91,12 +93,12 @@ Strategy context: ${JSON.stringify(seoStrategy || {})}
 Description: ${task.description}
 
 Keep the response compact:
-- keywordClusters: max 4 items
-- each cluster.secondary: max 4 items
-- siteStructure: max 6 pages
+- keywordClusters: max 3 items
+- each cluster.secondary: max 3 items
+- siteStructure: max 4 pages
 - technicalSeo: short priorities only
-- linkBuildingPlan: max 4 items
-- contentCalendar: max 4 weeks
+- linkBuildingPlan: max 3 items
+- contentCalendar: max 3 weeks
 
 Respond in JSON with keys: keywordClusters, siteStructure, technicalSeo, linkBuildingPlan, contentCalendar`
     );
@@ -105,13 +107,19 @@ Respond in JSON with keys: keywordClusters, siteStructure, technicalSeo, linkBui
       ? plan.keywordClusters
           .filter((cluster): cluster is NonNullable<typeof plan.keywordClusters>[number] => Boolean(cluster && typeof cluster === "object"))
           .map((cluster) => ({
-            primary: typeof cluster.primary === "string" && cluster.primary.length > 0 ? cluster.primary : task.title,
+            primary: typeof cluster.primary === "string" && cluster.primary.length > 0
+              ? cluster.primary
+              : typeof cluster.primaryKeyword === "string" && cluster.primaryKeyword.length > 0
+                ? cluster.primaryKeyword
+                : task.title,
             secondary: Array.isArray(cluster.secondary)
-              ? cluster.secondary.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 4)
-              : [],
+              ? cluster.secondary.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 3)
+              : Array.isArray(cluster.secondaryKeywords)
+                ? cluster.secondaryKeywords.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 3)
+                : [],
             intent: typeof cluster.intent === "string" && cluster.intent.length > 0 ? cluster.intent : "informational",
           }))
-          .slice(0, 4)
+          .slice(0, 3)
       : [];
     const siteStructure = Array.isArray(plan.siteStructure)
       ? plan.siteStructure
@@ -121,7 +129,7 @@ Respond in JSON with keys: keywordClusters, siteStructure, technicalSeo, linkBui
             targetKeyword: typeof page.targetKeyword === "string" && page.targetKeyword.length > 0 ? page.targetKeyword : task.title,
             pageType: typeof page.pageType === "string" && page.pageType.length > 0 ? page.pageType : "article",
           }))
-          .slice(0, 6)
+          .slice(0, 4)
       : [];
     const technicalSeo = {
       priorities: Array.isArray(plan.technicalSeo?.priorities)
@@ -139,7 +147,7 @@ Respond in JSON with keys: keywordClusters, siteStructure, technicalSeo, linkBui
             anchor: typeof item.anchor === "string" && item.anchor.length > 0 ? item.anchor : task.title,
             tactic: typeof item.tactic === "string" && item.tactic.length > 0 ? item.tactic : "manual outreach",
           }))
-          .slice(0, 4)
+          .slice(0, 3)
       : [];
     const contentCalendar = Array.isArray(plan.contentCalendar)
       ? plan.contentCalendar
@@ -150,7 +158,7 @@ Respond in JSON with keys: keywordClusters, siteStructure, technicalSeo, linkBui
             keyword: typeof item.keyword === "string" && item.keyword.length > 0 ? item.keyword : task.title,
             type: typeof item.type === "string" && item.type.length > 0 ? item.type : "article",
           }))
-          .slice(0, 4)
+          .slice(0, 3)
       : [];
     const normalizedPlan = {
       keywordClusters,

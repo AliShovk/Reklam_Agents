@@ -36,8 +36,9 @@ export class StrategyAgent extends BaseAgent {
     const strategy = await this.thinkJson<{
       channels: Array<{
         channel: string;
-        priority: string;
+        priority: string | number;
         tactics: string[];
+        reasoning?: string;
       }>;
       productIdeas: Array<{
         name: string;
@@ -67,7 +68,7 @@ Available growth channels: telegram, discord, reddit, youtube, tiktok, medium, t
 
 Available product types: calculator, landing_page, telegram_bot, web_tool, api_service, catalog, generator, comparison_tool, checker, aggregator`,
 
-      `Create a compact growth strategy. Focus on:
+      `Create a very compact growth strategy. Focus on:
 1. Which channels to prioritize and why
 2. What products to create to capture organic traffic
 3. Content plan for each channel
@@ -76,11 +77,11 @@ The key insight: create products that match existing search demand (e.g. "renova
 so each product becomes a traffic funnel with near-zero acquisition cost.
 
 Keep the response compact:
-- channels: max 5 items
-- tactics: max 4 short items per channel
-- productIdeas: max 3 items
-- contentPlan: max 4 items
-- reasoning: under 600 characters
+- channels: max 4 items
+- tactics: max 3 short items per channel
+- productIdeas: max 2 items
+- contentPlan: max 3 items
+- reasoning: under 400 characters
 
 Respond in JSON with keys: channels, productIdeas, contentPlan, reasoning`
     );
@@ -90,12 +91,16 @@ Respond in JSON with keys: channels, productIdeas, contentPlan, reasoning`
           .filter((item): item is NonNullable<typeof strategy.channels>[number] => Boolean(item && typeof item === "object"))
           .map((item) => ({
             channel: typeof item.channel === "string" && item.channel.length > 0 ? item.channel : "general",
-            priority: typeof item.priority === "string" && item.priority.length > 0 ? item.priority : "medium",
+            priority: typeof item.priority === "string"
+              ? item.priority
+              : typeof item.priority === "number"
+                ? String(item.priority)
+                : "medium",
             tactics: Array.isArray(item.tactics)
-              ? item.tactics.filter((tactic): tactic is string => typeof tactic === "string" && tactic.length > 0).slice(0, 4)
+              ? item.tactics.filter((tactic): tactic is string => typeof tactic === "string" && tactic.length > 0).slice(0, 3)
               : [],
           }))
-          .slice(0, 5)
+          .slice(0, 4)
       : [];
     const productIdeas = Array.isArray(strategy.productIdeas)
       ? strategy.productIdeas
@@ -107,7 +112,7 @@ Respond in JSON with keys: channels, productIdeas, contentPlan, reasoning`
             targetAudience: typeof item.targetAudience === "string" && item.targetAudience.length > 0 ? item.targetAudience : "general audience",
             searchDemand: typeof item.searchDemand === "string" && item.searchDemand.length > 0 ? item.searchDemand : task.title,
           }))
-          .slice(0, 3)
+          .slice(0, 2)
       : [];
     const contentPlan = Array.isArray(strategy.contentPlan)
       ? strategy.contentPlan
@@ -118,7 +123,7 @@ Respond in JSON with keys: channels, productIdeas, contentPlan, reasoning`
             channel: typeof item.channel === "string" && item.channel.length > 0 ? item.channel : "general",
             frequency: typeof item.frequency === "string" && item.frequency.length > 0 ? item.frequency : "weekly",
           }))
-          .slice(0, 4)
+          .slice(0, 3)
       : [];
     const reasoning = typeof strategy.reasoning === "string" && strategy.reasoning.length > 0 ? strategy.reasoning : task.description;
 
