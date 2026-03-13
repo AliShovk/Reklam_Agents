@@ -79,46 +79,68 @@ so each product becomes a traffic funnel with near-zero acquisition cost.
 Respond in JSON with keys: channels, productIdeas, contentPlan, reasoning`
     );
 
+    const channels = Array.isArray(strategy.channels)
+      ? strategy.channels.filter((item): item is NonNullable<typeof strategy.channels>[number] => Boolean(item && typeof item === "object"))
+      : [];
+    const productIdeas = Array.isArray(strategy.productIdeas)
+      ? strategy.productIdeas.filter((item): item is NonNullable<typeof strategy.productIdeas>[number] => Boolean(item && typeof item === "object"))
+      : [];
+    const contentPlan = Array.isArray(strategy.contentPlan)
+      ? strategy.contentPlan.filter((item): item is NonNullable<typeof strategy.contentPlan>[number] => Boolean(item && typeof item === "object"))
+      : [];
+
     // Save strategy to knowledge base
     this.addKnowledge({
       type: "strategy",
       title: `Strategy: ${task.title}`,
       content: strategy.reasoning,
-      tags: ["strategy", ...(strategy.channels?.map((c) => c.channel) || [])],
+      tags: ["strategy", ...channels.map((c) => c.channel).filter((channel): channel is string => typeof channel === "string" && channel.length > 0)],
     });
 
     // Create tasks for Product Agents
-    for (const product of strategy.productIdeas || []) {
+    for (const product of productIdeas) {
+      const productName = typeof product.name === "string" && product.name.length > 0 ? product.name : "Untitled product";
+      const productDescription = typeof product.description === "string" && product.description.length > 0 ? product.description : task.description;
+      const targetAudience = typeof product.targetAudience === "string" && product.targetAudience.length > 0 ? product.targetAudience : "general audience";
+      const searchDemand = typeof product.searchDemand === "string" && product.searchDemand.length > 0 ? product.searchDemand : "unknown";
+
       this.createSubTask({
         type: "create_product",
         priority: "high",
-        title: `Create product: ${product.name}`,
-        description: `${product.description}. Target: ${product.targetAudience}. Search demand: ${product.searchDemand}`,
+        title: `Create product: ${productName}`,
+        description: `${productDescription}. Target: ${targetAudience}. Search demand: ${searchDemand}`,
         input: { product },
         assignedTo: "product",
       });
     }
 
     // Create tasks for Content Agents
-    for (const content of strategy.contentPlan || []) {
+    for (const content of contentPlan) {
+      const contentType = typeof content.type === "string" && content.type.length > 0 ? content.type : "content";
+      const contentTopic = typeof content.topic === "string" && content.topic.length > 0 ? content.topic : task.title;
+      const contentChannel = typeof content.channel === "string" && content.channel.length > 0 ? content.channel : "general";
+      const contentFrequency = typeof content.frequency === "string" && content.frequency.length > 0 ? content.frequency : "as needed";
+
       this.createSubTask({
         type: "create_content",
         priority: "medium",
-        title: `Create ${content.type}: ${content.topic}`,
-        description: `Channel: ${content.channel}. Frequency: ${content.frequency}`,
+        title: `Create ${contentType}: ${contentTopic}`,
+        description: `Channel: ${contentChannel}. Frequency: ${contentFrequency}`,
         input: { content },
         assignedTo: "content",
       });
     }
 
     // Create SEO tasks if SEO is in channels
-    const seoChannel = strategy.channels?.find((c) => c.channel === "seo");
+    const seoChannel = channels.find((c) => c.channel === "seo");
     if (seoChannel) {
+      const seoTactics = Array.isArray(seoChannel.tactics) ? seoChannel.tactics.filter((tactic): tactic is string => typeof tactic === "string" && tactic.length > 0) : [];
+
       this.createSubTask({
         type: "seo_optimize",
         priority: "high",
         title: "Launch SEO campaign",
-        description: `SEO tactics: ${seoChannel.tactics.join(", ")}`,
+        description: `SEO tactics: ${seoTactics.join(", ") || "Define SEO tactics"}`,
         input: { seoStrategy: seoChannel },
         assignedTo: "seo",
       });

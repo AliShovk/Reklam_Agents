@@ -149,14 +149,22 @@ Active goals: ${JSON.stringify(this.goals.filter((g) => g.status === "active"))}
 Respond in JSON with keys: assessment, adjustments, newTasks`
     );
 
+    const newTasks = Array.isArray(analysis.newTasks)
+      ? analysis.newTasks.filter((item): item is NonNullable<typeof analysis.newTasks>[number] => Boolean(item && typeof item === "object"))
+      : [];
+
     // Create new tasks from AI analysis
-    for (const t of analysis.newTasks || []) {
+    for (const t of newTasks) {
+      const title = typeof t.title === "string" && t.title.length > 0 ? t.title : `Follow-up task from ${task.title}`;
+      const description = typeof t.description === "string" && t.description.length > 0 ? t.description : "Review analysis output and execute the recommended next step.";
+      const assignedTo = typeof t.assignTo === "string" && t.assignTo.length > 0 ? t.assignTo : "supervisor";
+
       this.createSubTask({
         type: t.type as any,
         priority: (t.priority as any) || "medium",
-        title: t.title,
-        description: t.description,
-        assignedTo: t.assignTo,
+        title,
+        description,
+        assignedTo,
       });
     }
 
@@ -201,18 +209,26 @@ Input: ${JSON.stringify(task.input)}
 Break this into subtasks. Respond in JSON with key: subtasks (array of {type, title, description, assignTo, priority})`
     );
 
-    for (const sub of delegation.subtasks || []) {
+    const subtasks = Array.isArray(delegation.subtasks)
+      ? delegation.subtasks.filter((item): item is NonNullable<typeof delegation.subtasks>[number] => Boolean(item && typeof item === "object"))
+      : [];
+
+    for (const sub of subtasks) {
+      const title = typeof sub.title === "string" && sub.title.length > 0 ? sub.title : `Subtask from ${task.title}`;
+      const description = typeof sub.description === "string" && sub.description.length > 0 ? sub.description : task.description;
+      const assignedTo = typeof sub.assignTo === "string" && sub.assignTo.length > 0 ? sub.assignTo : "supervisor";
+
       this.createSubTask({
         type: sub.type as any,
         priority: (sub.priority as any) || "medium",
-        title: sub.title,
-        description: sub.description,
-        assignedTo: sub.assignTo,
+        title,
+        description,
+        assignedTo,
         input: { parentTaskId: task.id },
       });
     }
 
-    return { delegated: delegation.subtasks?.length || 0 };
+    return { delegated: subtasks.length };
   }
 
   // ─── Event Handlers ──────────────────────────────────────────────────
