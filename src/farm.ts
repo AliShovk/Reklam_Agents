@@ -5,6 +5,7 @@
 
 import { logger, loadFarmConfig, initializeLLM, GrowthLoop, eventBus } from "./core/index.js";
 import { initTelegram, getTelegramClient } from "./core/telegram-client.js";
+import { setupTelegramControl } from "./core/telegram-control.js";
 import { createDashboard } from "./dashboard/server.js";
 import { messageQueue } from "./core/message-queue.js";
 import { knowledgeBase } from "./core/knowledge-base.js";
@@ -71,6 +72,7 @@ export class AgentFarm {
       const telegramClient = initTelegram();
       if (telegramClient) {
         await telegramClient.start();
+        setupTelegramControl(telegramClient.getBotInstance(), this);
         log.info("✅ Telegram бот запущен");
       } else {
         log.info("ℹ️ Telegram бот не настроен (пропуск)");
