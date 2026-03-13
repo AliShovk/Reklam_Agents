@@ -148,8 +148,8 @@ export class GrowthLoop {
       priority: "medium",
       createdBy: "growth-loop",
       title: `Promote masterhacks.ru — Content batch #${this.state.cycleNumber}`,
-      description: "Create promotional content for masterhacks.ru and its offers across active channels. Focus on benefits, differentiation, and explicit CTAs instead of generic educational advice.",
-      input: { cycleNumber: this.state.cycleNumber, targetSite: "masterhacks.ru", offerName: "решения и инструменты masterhacks.ru" },
+      description: "Create promotional content for masterhacks.ru as a source of useful videos for home, household tasks, repairs, and everyday practical needs. Use explicit CTAs instead of generic educational advice.",
+      input: { cycleNumber: this.state.cycleNumber, targetSite: "masterhacks.ru", offerName: "полезные видео для дома и хозяйства на masterhacks.ru" },
       assignedTo: "content",
     });
   }
@@ -160,8 +160,8 @@ export class GrowthLoop {
       priority: "medium",
       createdBy: "growth-loop",
       title: `Promote masterhacks.ru — Publishing sweep #${this.state.cycleNumber}`,
-      description: "Publish promotional content for masterhacks.ru to target channels. Keep the offer, site, and CTA visible in every post.",
-      input: { cycleNumber: this.state.cycleNumber, targetSite: "masterhacks.ru", offerName: "решения и инструменты masterhacks.ru" },
+      description: "Publish promotional content for masterhacks.ru to target channels. Present it as a source of useful home and household videos, and keep the CTA visible in every post.",
+      input: { cycleNumber: this.state.cycleNumber, targetSite: "masterhacks.ru", offerName: "полезные видео для дома и хозяйства на masterhacks.ru" },
       assignedTo: "posting",
     });
   }

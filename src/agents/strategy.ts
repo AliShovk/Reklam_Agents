@@ -166,8 +166,8 @@ Respond in JSON with keys: channels, productIdeas, contentPlan, reasoning`
         type: "create_content",
         priority: "medium",
         title: `Create ${contentType}: ${contentTopic}`,
-        description: `Channel: ${contentChannel}. Frequency: ${contentFrequency}. Make it directly promote the active goal, target site, or product with a clear CTA.`,
-        input: { content: { ...content, targetSite: "masterhacks.ru", offerName: "решение от masterhacks.ru" }, targetSite: "masterhacks.ru" },
+        description: `Channel: ${contentChannel}. Frequency: ${contentFrequency}. Make it directly promote masterhacks.ru as a source of useful videos for home and household needs with a clear CTA.`,
+        input: { content: { ...content, targetSite: "masterhacks.ru", offerName: "полезные видео для дома и хозяйства на masterhacks.ru" }, targetSite: "masterhacks.ru" },
         assignedTo: "content",
       });
     }

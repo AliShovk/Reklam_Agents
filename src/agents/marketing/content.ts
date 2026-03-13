@@ -42,7 +42,7 @@ export class ContentAgent extends BaseAgent {
       ? spec.name
       : typeof contentInput?.offerName === "string" && contentInput.offerName.length > 0
         ? contentInput.offerName
-        : "решение от masterhacks.ru";
+        : "полезные видео для дома и хозяйства на masterhacks.ru";
 
     const content = await this.thinkJson<{
       title: string;
@@ -67,9 +67,11 @@ Content style guide by platform:
 
 Important:
 - The primary goal is direct promotion of the target site/product, not generic education.
+- masterhacks.ru is a site with useful videos for home, household tasks, DIY, repairs, and everyday practical problems.
 - Mention the promoted product, offer, or site naturally and explicitly.
-- Every piece must explain why the audience should visit, try, or subscribe now.
+- Every piece must explain why the audience should visit, watch, save, or subscribe now.
 - Always include a clear CTA to ${promotionTarget} or the promoted offer.
+- Avoid describing masterhacks.ru as a marketing tool, promo-material service, or business automation product.
 - Avoid generic tips that could fit any business if they do not support promotion.`,
 
       `Create ${contentType} for ${channel}:
@@ -80,16 +82,18 @@ Promoted site: ${promotionTarget}
 Promoted offer: ${offerName}
 
 Make this content promotional-first:
-- focus on the benefit, offer, differentiator, and next action
+- position masterhacks.ru as a practical source of helpful videos for home and household needs
+- focus on the practical benefit, relevance for everyday life, and next action
 - reference the promoted site or product directly
-- do not produce abstract creator advice unless it directly supports the promoted offer
+- do not produce abstract creator or marketing advice unless it directly supports the promoted site category
 
 Keep the response compact:
 - body should be concise and publishable, usually under 1200 characters unless channel requires more
 - variations: max 2 items
 - each variation text under 280 characters
+Respond in JSON with keys: title, body, callToAction, variations (adaptations for other platforms)
+`,
 
-Respond in JSON with keys: title, body, callToAction, variations (adaptations for other platforms)`
     );
 
     const normalizedTitle = typeof content.title === "string" && content.title.length > 0 ? content.title : task.title;
@@ -166,7 +170,7 @@ Requirements:
       `Generate ${count} SEO articles for keywords: ${keywords.join(", ")}
 Topic area: ${task.description}
 
-The articles should attract search traffic that can be converted into visits to masterhacks.ru or a promoted product from the task context.
+The articles should attract search traffic that can be converted into visits to masterhacks.ru as a source of useful home and household videos.
 Include a natural promotional bridge and CTA where appropriate.
 
 Respond in JSON with key: articles (array of {title, slug, body, metaDescription, keywords, wordCount})`

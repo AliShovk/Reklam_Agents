@@ -53,7 +53,7 @@ export class PostingAgent extends BaseAgent {
       : "masterhacks.ru";
     const offerName = typeof content?.offerName === "string" && content.offerName.length > 0
       ? content.offerName
-      : "решение от masterhacks.ru";
+      : "полезные видео для дома и хозяйства на masterhacks.ru";
 
     // Генерируем пост через LLM
     const post = await this.thinkJson<{
@@ -74,6 +74,7 @@ Rules:
 - Max 4096 characters
 - No Markdown — only HTML tags
 - The post should directly promote the target site or offer, not give generic creator advice
+- masterhacks.ru is a site with useful videos for home, household tasks, DIY, repairs, and everyday practical problems
 - Mention ${promotionTarget} or ${offerName} explicitly and make the next step obvious`,
 
       `Create a Telegram post about:
@@ -84,7 +85,7 @@ Target: ${content?.targetAudience || "tech-savvy audience"}
 Promoted site: ${promotionTarget}
 Promoted offer: ${offerName}
 
-Make it promotional-first with a clear reason to click, join, or try now.
+Make it promotional-first with a clear reason to click, watch, save, or subscribe now.
 
 Respond in JSON: { text, pinMessage (bool), hasImage (bool), imagePrompt }`,
     );
@@ -149,7 +150,7 @@ Create a poll with 2-8 options. Respond in JSON: { question, options, isAnonymou
       : "masterhacks.ru";
     const offerName = typeof content?.offerName === "string" && content.offerName.length > 0
       ? content.offerName
-      : "решение от masterhacks.ru";
+      : "полезные видео для дома и хозяйства на masterhacks.ru";
 
     // Если канал — Telegram и клиент доступен, публикуем реально
     if (channel === "telegram" && getTelegramClient()) {
@@ -182,6 +183,7 @@ Platform formatting rules:
 Important:
 - Prefer direct promotion of the target site or product over generic educational commentary.
 - Keep the offer, differentiator, and CTA visible in the final copy.
+- masterhacks.ru should be presented as a practical source of useful videos for home and household needs.
 - If the source content is generic, rewrite it into promotional copy for ${promotionTarget} or ${offerName}.`,
 
       `Prepare this content for publishing on ${channel}:
