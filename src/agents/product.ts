@@ -42,7 +42,7 @@ export class ProductAgent extends BaseAgent {
       type: string;
       features: string[];
       techStack: string[];
-      pages: Array<{ name: string; description: string }>;
+      pages: string[];
       seoKeywords: string[];
       monetization: string;
       estimatedDevTime: string;
@@ -64,14 +64,45 @@ Description: ${productInput?.description || task.description}
 Target audience: ${productInput?.targetAudience || "general"}
 Search demand: ${productInput?.searchDemand || "unknown"}
 
-Create a detailed spec. Respond in JSON with keys: name, type, features, techStack, pages, seoKeywords, monetization, estimatedDevTime, callToAction, designNotes`
+Keep the response compact:
+- features: max 6 short items
+- techStack: max 5 items
+- pages: max 5 short page names only
+- designNotes: under 500 characters
+
+Respond in JSON with keys: name, type, features, techStack, pages, seoKeywords, monetization, estimatedDevTime, callToAction, designNotes`
     );
+
+    const specName = typeof spec.name === "string" && spec.name.length > 0 ? spec.name : (productInput?.name || task.title);
+    const specType = typeof spec.type === "string" && spec.type.length > 0 ? spec.type : (productInput?.type || "web_tool");
+    const features = Array.isArray(spec.features) ? spec.features.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 6) : [];
+    const techStack = Array.isArray(spec.techStack) ? spec.techStack.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 5) : [];
+    const pages = Array.isArray(spec.pages) ? spec.pages.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 5) : [];
+    const seoKeywords = Array.isArray(spec.seoKeywords) ? spec.seoKeywords.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 8) : [];
+    const monetization = typeof spec.monetization === "string" && spec.monetization.length > 0 ? spec.monetization : "lead generation";
+    const estimatedDevTime = typeof spec.estimatedDevTime === "string" && spec.estimatedDevTime.length > 0 ? spec.estimatedDevTime : "1-2 weeks";
+    const callToAction = typeof spec.callToAction === "string" && spec.callToAction.length > 0 ? spec.callToAction : "Try the tool";
+    const designNotes = typeof spec.designNotes === "string" && spec.designNotes.length > 0 ? spec.designNotes : (productInput?.description || task.description);
+
+    const normalizedSpec = {
+      ...spec,
+      name: specName,
+      type: specType,
+      features,
+      techStack,
+      pages,
+      seoKeywords,
+      monetization,
+      estimatedDevTime,
+      callToAction,
+      designNotes,
+    };
 
     const product: ProductIdea = {
       id: uuid(),
-      name: spec.name,
-      type: (spec.type as ProductType) || "web_tool",
-      description: spec.designNotes,
+      name: specName,
+      type: (specType as ProductType) || "web_tool",
+      description: designNotes,
       targetAudience: productInput?.targetAudience || "",
       searchDemand: productInput?.searchDemand || "",
       estimatedTraffic: 0,
@@ -83,18 +114,18 @@ Create a detailed spec. Respond in JSON with keys: name, type, features, techSta
     // Save to knowledge base
     this.addKnowledge({
       type: "product",
-      title: `Product spec: ${spec.name}`,
-      content: JSON.stringify(spec),
-      tags: ["product", spec.type, ...spec.seoKeywords.slice(0, 5)],
+      title: `Product spec: ${specName}`,
+      content: JSON.stringify(normalizedSpec),
+      tags: ["product", specType, ...seoKeywords.slice(0, 5)],
     });
 
     // Send to Programming Agent to build
     this.createSubTask({
       type: "write_code",
       priority: "high",
-      title: `Build product: ${spec.name}`,
-      description: `Build a ${spec.type} with features: ${spec.features.join(", ")}`,
-      input: { spec, productId: product.id },
+      title: `Build product: ${specName}`,
+      description: `Build a ${specType} with features: ${features.join(", ") || "core MVP features"}`,
+      input: { spec: normalizedSpec, productId: product.id },
       assignedTo: "programming",
     });
 
@@ -102,9 +133,9 @@ Create a detailed spec. Respond in JSON with keys: name, type, features, techSta
     this.createSubTask({
       type: "seo_optimize",
       priority: "medium",
-      title: `SEO for product: ${spec.name}`,
-      description: `Optimize for keywords: ${spec.seoKeywords.join(", ")}`,
-      input: { productId: product.id, keywords: spec.seoKeywords },
+      title: `SEO for product: ${specName}`,
+      description: `Optimize for keywords: ${seoKeywords.join(", ") || specName}`,
+      input: { productId: product.id, keywords: seoKeywords },
       assignedTo: "seo",
     });
 
@@ -112,13 +143,13 @@ Create a detailed spec. Respond in JSON with keys: name, type, features, techSta
     this.createSubTask({
       type: "create_content",
       priority: "medium",
-      title: `Content for product launch: ${spec.name}`,
-      description: `Create launch content: article, social posts, tutorial. CTA: ${spec.callToAction}`,
-      input: { productId: product.id, spec },
+      title: `Content for product launch: ${specName}`,
+      description: `Create launch content: article, social posts, tutorial. CTA: ${callToAction}`,
+      input: { productId: product.id, spec: normalizedSpec },
       assignedTo: "content",
     });
 
-    return { product, spec };
+    return { product, spec: normalizedSpec };
   }
 
   private async ideateProducts(task: Task): Promise<Record<string, unknown>> {
@@ -137,21 +168,28 @@ Focus on free tools that solve real problems people search for.`,
       `Context: ${task.description}
 Input: ${JSON.stringify(task.input)}
 
-Generate 3-5 product ideas. Each should target a specific search query.
+Generate 2-3 product ideas. Keep each item compact and concrete.
 Respond in JSON with key: products`
     );
 
-    for (const idea of ideas.products || []) {
+    const products = Array.isArray(ideas.products)
+      ? ideas.products.filter((idea): idea is NonNullable<typeof ideas.products>[number] => Boolean(idea && typeof idea === "object"))
+      : [];
+
+    for (const idea of products) {
+      const ideaName = typeof idea.name === "string" && idea.name.length > 0 ? idea.name : "Untitled product";
+      const ideaDescription = typeof idea.description === "string" && idea.description.length > 0 ? idea.description : task.description;
+
       this.createSubTask({
         type: "create_product",
         priority: "medium",
-        title: `Design product: ${idea.name}`,
-        description: idea.description,
+        title: `Design product: ${ideaName}`,
+        description: ideaDescription,
         input: { product: idea },
         assignedTo: "product",
       });
     }
 
-    return { ideas: ideas.products?.length || 0 };
+    return { ideas: products.length };
   }
 }

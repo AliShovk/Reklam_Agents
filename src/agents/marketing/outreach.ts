@@ -39,17 +39,14 @@ export class OutreachAgent extends BaseAgent {
         platform: string;
         niche: string;
         size: string;
-        language: string;
-        joinUrl: string;
         rules: string;
         bestContentType: string;
         engagement: string;
-        keyword_match: string[];
+        keywordMatch: string[];
       }>;
       strategy: {
         priorityCommunities: string[];
         approachSequence: string;
-        contentAdaptations: Record<string, string>;
       };
     }>(
       `You are a Community Discovery Agent.
@@ -67,44 +64,68 @@ Keywords: ${keywords.join(", ")}
 Target platforms: ${targetChannels.join(", ")}
 Goal: ${task.description}
 
-Respond in JSON with keys: communities (array of {name, platform, niche, size, language, joinUrl, rules, bestContentType, engagement, keyword_match}), strategy (with priorityCommunities, approachSequence, contentAdaptations)`
+Keep the response compact:
+- communities: max 6 items
+- rules: short summary only
+- omit URLs and verbose adaptation maps
+
+Respond in JSON with keys: communities (array of {name, platform, niche, size, rules, bestContentType, engagement, keywordMatch}), strategy (with priorityCommunities, approachSequence)`
     );
 
+    const communityList = Array.isArray(communities.communities)
+      ? communities.communities
+          .filter((community): community is NonNullable<typeof communities.communities>[number] => Boolean(community && typeof community === "object"))
+          .slice(0, 6)
+      : [];
+    const priorityCommunities = Array.isArray(communities.strategy?.priorityCommunities)
+      ? communities.strategy.priorityCommunities.filter((name): name is string => typeof name === "string" && name.length > 0)
+      : [];
+
     // Save communities to knowledge base
-    for (const community of communities.communities || []) {
+    for (const community of communityList) {
+      const communityName = typeof community.name === "string" && community.name.length > 0 ? community.name : "Unknown community";
+      const platform = typeof community.platform === "string" && community.platform.length > 0 ? community.platform : "unknown";
+      const niche = typeof community.niche === "string" && community.niche.length > 0 ? community.niche : "general";
+      const size = typeof community.size === "string" && community.size.length > 0 ? community.size : "unknown";
+      const engagement = typeof community.engagement === "string" && community.engagement.length > 0 ? community.engagement : "unknown";
+      const keywordMatch = Array.isArray(community.keywordMatch) ? community.keywordMatch.filter((keyword): keyword is string => typeof keyword === "string" && keyword.length > 0) : [];
+
       this.addKnowledge({
         type: "research",
-        title: `Community: ${community.name} (${community.platform})`,
-        content: `Niche: ${community.niche}. Size: ${community.size}. Language: ${community.language}. Engagement: ${community.engagement}`,
+        title: `Community: ${communityName} (${platform})`,
+        content: `Niche: ${niche}. Size: ${size}. Engagement: ${engagement}`,
         tags: [
           "community",
-          community.platform,
-          community.niche,
-          ...community.keyword_match.slice(0, 3),
+          platform,
+          niche,
+          ...keywordMatch.slice(0, 3),
         ],
       });
     }
 
     // Create engagement tasks for priority communities
-    const priorityCommunities = communities.strategy?.priorityCommunities || [];
     for (const communityName of priorityCommunities.slice(0, 5)) {
-      const community = communities.communities?.find((c) => c.name === communityName);
+      const community = communityList.find((c) => c.name === communityName);
       if (community) {
+        const platform = typeof community.platform === "string" && community.platform.length > 0 ? community.platform : "unknown";
+        const rules = typeof community.rules === "string" && community.rules.length > 0 ? community.rules : "Check community rules before posting.";
+        const bestContentType = typeof community.bestContentType === "string" && community.bestContentType.length > 0 ? community.bestContentType : "helpful discussion";
+
         this.createSubTask({
           type: "engage",
           priority: "medium",
-          title: `Engage in: ${community.name} (${community.platform})`,
-          description: `Join and engage. Rules: ${community.rules}. Best content type: ${community.bestContentType}`,
+          title: `Engage in: ${communityName} (${platform})`,
+          description: `Join and engage. Rules: ${rules}. Best content type: ${bestContentType}`,
           input: { community },
           assignedTo: "engagement",
         });
       }
     }
 
-    this.log.info(`Found ${communities.communities?.length || 0} target communities`);
+    this.log.info(`Found ${communityList.length} target communities`);
 
     return {
-      communitiesFound: communities.communities?.length || 0,
+      communitiesFound: communityList.length,
       priorityCommunities: priorityCommunities.length,
       strategy: communities.strategy,
     };
