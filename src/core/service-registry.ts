@@ -53,6 +53,22 @@ class ServiceRegistry {
     return this.readAll();
   }
 
+  async getCredentialsForService(service: string): Promise<ServiceCredentialRecord[]> {
+    const normalizedService = service.trim();
+    const records = await this.readAll();
+    return records.filter((item) => item.service === normalizedService);
+  }
+
+  async getServiceConfig(service: string): Promise<Record<string, string>> {
+    const records = await this.getCredentialsForService(service);
+    return Object.fromEntries(records.map((item) => [item.key, item.value]));
+  }
+
+  async hasService(service: string): Promise<boolean> {
+    const records = await this.getCredentialsForService(service);
+    return records.length > 0;
+  }
+
   async listSummary(): Promise<Array<Pick<ServiceCredentialRecord, "service" | "key" | "description" | "updatedAt">>> {
     const records = await this.readAll();
     return records.map(({ service, key, description, updatedAt }) => ({ service, key, description, updatedAt }));

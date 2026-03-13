@@ -1,6 +1,7 @@
 import type { Context, Telegraf } from "telegraf";
 import type { AgentFarm } from "../farm.js";
 import { createSubLogger } from "./logger.js";
+import { executeServiceCall } from "./service-executor.js";
 import { messageQueue } from "./message-queue.js";
 import { serviceRegistry } from "./service-registry.js";
 import type { AgentRole, TaskPriority, TaskType } from "./types.js";
@@ -81,6 +82,10 @@ function parsePairs(input: string): Record<string, string> {
   return result;
 }
 
+function getCommandText(ctx: Context): string {
+  return "message" in ctx.update && "text" in ctx.update.message ? ctx.update.message.text : "";
+}
+
 export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
   bot.command("help", async (ctx) => {
     if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
@@ -91,6 +96,14 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
       "/task role | type | priority | title | description — создать задачу агенту",
       "/service service | key | value | description — сохранить доступ/API",
       "/services — список сохранённых сервисов",
+      "/call service | action | key=value | ... — реально вызвать сервис",
+      "",
+      "Примеры:",
+      "/call wp_main | create_post | title=Тест | content=Привет | status=draft",
+      "/call youtube_main | search | q=ремонт кухни | max_results=3",
+      "/call discord_main | send_message | content=Тест в Discord",
+      "/call reddit_main | list_posts | subreddit=DIY | limit=3",
+      "/call api_main | users | method=GET | query.limit=10",
     ].join("\n"));
   });
 
@@ -111,7 +124,7 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
 
   bot.command("goal", async (ctx) => {
     if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
-    const text = "message" in ctx.update && "text" in ctx.update.message ? ctx.update.message.text : "";
+    const text = getCommandText(ctx);
     const payload = text.replace(/^\/goal(@\w+)?\s*/i, "");
     const parts = payload.split("|").map((item) => item.trim()).filter(Boolean);
     if (parts.length < 4) {
@@ -135,7 +148,7 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
 
   bot.command("task", async (ctx) => {
     if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
-    const text = "message" in ctx.update && "text" in ctx.update.message ? ctx.update.message.text : "";
+    const text = getCommandText(ctx);
     const payload = text.replace(/^\/task(@\w+)?\s*/i, "");
     const parts = payload.split("|").map((item) => item.trim()).filter(Boolean);
     if (parts.length < 5) {
@@ -169,7 +182,7 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
 
   bot.command("service", async (ctx) => {
     if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
-    const text = "message" in ctx.update && "text" in ctx.update.message ? ctx.update.message.text : "";
+    const text = getCommandText(ctx);
     const payload = text.replace(/^\/service(@\w+)?\s*/i, "");
     const parts = payload.split("|").map((item) => item.trim());
     if (parts.length < 3) {
@@ -183,6 +196,29 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
     }
     const saved = await serviceRegistry.setCredential(service, key, value, description);
     await ctx.reply(`🔐 Доступ сохранён: ${saved.service}.${saved.key}`);
+  });
+
+  bot.command("call", async (ctx) => {
+    if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
+    const text = getCommandText(ctx);
+    const payload = text.replace(/^\/call(@\w+)?\s*/i, "");
+    const parts = payload.split("|").map((item) => item.trim()).filter(Boolean);
+    if (parts.length < 2) {
+      await ctx.reply("Формат: /call service | action | key=value | ...");
+      return;
+    }
+    const [service, action, ...rest] = parts;
+    const params = parsePairs(rest.join("|"));
+    try {
+      const result = await executeServiceCall(service, action, params);
+      await ctx.reply([
+        `${result.ok ? "✅" : "⚠️"} ${service}.${result.action}`,
+        `HTTP: ${result.status}`,
+        `Ответ: ${result.summary}`,
+      ].join("\n"));
+    } catch (err: any) {
+      await ctx.reply(`❌ Ошибка вызова ${service}: ${err.message}`);
+    }
   });
 
   bot.command("services", async (ctx) => {

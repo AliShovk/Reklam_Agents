@@ -5,6 +5,7 @@ export { eventBus } from "./event-bus.js";
 export { messageQueue } from "./message-queue.js";
 export { knowledgeBase } from "./knowledge-base.js";
 export { serviceRegistry } from "./service-registry.js";
+export { executeServiceCall } from "./service-executor.js";
 export { llmChat, llmJson, initializeLLM } from "./llm.js";
 export { BaseAgent } from "./base-agent.js";
 export { GrowthLoop } from "./growth-loop.js";
