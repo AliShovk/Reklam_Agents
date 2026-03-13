@@ -43,28 +43,21 @@ export class SeoAgent extends BaseAgent {
       keywordClusters: Array<{
         primary: string;
         secondary: string[];
-        searchVolume: string;
-        difficulty: string;
-        contentType: string;
+        intent: string;
       }>;
       siteStructure: Array<{
         page: string;
         targetKeyword: string;
-        metaTitle: string;
-        metaDescription: string;
-        h1: string;
-        internalLinks: string[];
+        pageType: string;
       }>;
       technicalSeo: {
-        robots: string;
-        sitemap: string;
+        priorities: string[];
         schema: string;
-        canonicals: string[];
       };
       linkBuildingPlan: Array<{
         source: string;
         anchor: string;
-        strategy: string;
+        tactic: string;
       }>;
       contentCalendar: Array<{
         week: number;
@@ -97,11 +90,78 @@ Keywords: ${keywords.join(", ")}
 Strategy context: ${JSON.stringify(seoStrategy || {})}
 Description: ${task.description}
 
+Keep the response compact:
+- keywordClusters: max 4 items
+- each cluster.secondary: max 4 items
+- siteStructure: max 6 pages
+- technicalSeo: short priorities only
+- linkBuildingPlan: max 4 items
+- contentCalendar: max 4 weeks
+
 Respond in JSON with keys: keywordClusters, siteStructure, technicalSeo, linkBuildingPlan, contentCalendar`
     );
 
+    const keywordClusters = Array.isArray(plan.keywordClusters)
+      ? plan.keywordClusters
+          .filter((cluster): cluster is NonNullable<typeof plan.keywordClusters>[number] => Boolean(cluster && typeof cluster === "object"))
+          .map((cluster) => ({
+            primary: typeof cluster.primary === "string" && cluster.primary.length > 0 ? cluster.primary : task.title,
+            secondary: Array.isArray(cluster.secondary)
+              ? cluster.secondary.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 4)
+              : [],
+            intent: typeof cluster.intent === "string" && cluster.intent.length > 0 ? cluster.intent : "informational",
+          }))
+          .slice(0, 4)
+      : [];
+    const siteStructure = Array.isArray(plan.siteStructure)
+      ? plan.siteStructure
+          .filter((page): page is NonNullable<typeof plan.siteStructure>[number] => Boolean(page && typeof page === "object"))
+          .map((page) => ({
+            page: typeof page.page === "string" && page.page.length > 0 ? page.page : "landing-page",
+            targetKeyword: typeof page.targetKeyword === "string" && page.targetKeyword.length > 0 ? page.targetKeyword : task.title,
+            pageType: typeof page.pageType === "string" && page.pageType.length > 0 ? page.pageType : "article",
+          }))
+          .slice(0, 6)
+      : [];
+    const technicalSeo = {
+      priorities: Array.isArray(plan.technicalSeo?.priorities)
+        ? plan.technicalSeo.priorities.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 5)
+        : [],
+      schema: typeof plan.technicalSeo?.schema === "string" && plan.technicalSeo.schema.length > 0
+        ? plan.technicalSeo.schema
+        : "Article",
+    };
+    const linkBuildingPlan = Array.isArray(plan.linkBuildingPlan)
+      ? plan.linkBuildingPlan
+          .filter((item): item is NonNullable<typeof plan.linkBuildingPlan>[number] => Boolean(item && typeof item === "object"))
+          .map((item) => ({
+            source: typeof item.source === "string" && item.source.length > 0 ? item.source : "guest post",
+            anchor: typeof item.anchor === "string" && item.anchor.length > 0 ? item.anchor : task.title,
+            tactic: typeof item.tactic === "string" && item.tactic.length > 0 ? item.tactic : "manual outreach",
+          }))
+          .slice(0, 4)
+      : [];
+    const contentCalendar = Array.isArray(plan.contentCalendar)
+      ? plan.contentCalendar
+          .filter((item): item is NonNullable<typeof plan.contentCalendar>[number] => Boolean(item && typeof item === "object"))
+          .map((item, index) => ({
+            week: typeof item.week === "number" ? item.week : index + 1,
+            topic: typeof item.topic === "string" && item.topic.length > 0 ? item.topic : task.title,
+            keyword: typeof item.keyword === "string" && item.keyword.length > 0 ? item.keyword : task.title,
+            type: typeof item.type === "string" && item.type.length > 0 ? item.type : "article",
+          }))
+          .slice(0, 4)
+      : [];
+    const normalizedPlan = {
+      keywordClusters,
+      siteStructure,
+      technicalSeo,
+      linkBuildingPlan,
+      contentCalendar,
+    };
+
     // Create article generation tasks
-    for (const cluster of plan.keywordClusters?.slice(0, 5) || []) {
+    for (const cluster of keywordClusters) {
       this.createSubTask({
         type: "generate_articles",
         priority: "medium",
@@ -116,14 +176,14 @@ Respond in JSON with keys: keywordClusters, siteStructure, technicalSeo, linkBui
       type: "strategy",
       title: `SEO plan: ${task.title}`,
       content: JSON.stringify({
-        clusters: plan.keywordClusters?.length || 0,
-        pages: plan.siteStructure?.length || 0,
-        calendar: plan.contentCalendar?.length || 0,
+        clusters: keywordClusters.length,
+        pages: siteStructure.length,
+        calendar: contentCalendar.length,
       }),
       tags: ["seo", "strategy", ...keywords.slice(0, 5)],
     });
 
-    return { plan };
+    return { plan: normalizedPlan };
   }
 
   private async generateSeoArticles(task: Task): Promise<Record<string, unknown>> {
@@ -135,24 +195,21 @@ Respond in JSON with keys: keywordClusters, siteStructure, technicalSeo, linkBui
         slug: string;
         metaTitle: string;
         metaDescription: string;
-        body: string;
+        outline: string[];
+        summary: string;
         keywords: string[];
-        schemaMarkup: string;
-        faq: Array<{ question: string; answer: string }>;
+        faq: string[];
       }>;
     }>(
       `You are an SEO Content Generator.
 Generate articles that rank and provide real value.
 
 Requirements:
-- 1000+ words, well-structured
-- H2/H3 headings with keywords
-- Natural keyword density (1.5-2.5%)
-- FAQ schema section (5+ questions)
-- Meta title (50-60 chars) and description (150-160 chars)
-- Engaging intro that hooks readers
-- Practical examples and actionable advice
-- Schema.org Article markup`,
+- Produce compact article briefs, not full long-form articles
+- outline: max 6 bullet headings
+- summary: under 600 characters
+- faq: max 4 short questions
+- Meta title (50-60 chars) and description (150-160 chars)`,
 
       `Generate SEO articles for: ${keywords.join(", ")}
 Context: ${task.description}
@@ -160,16 +217,37 @@ Context: ${task.description}
 Respond in JSON with key: articles`
     );
 
-    for (const article of articles.articles || []) {
+    const articleList = Array.isArray(articles.articles)
+      ? articles.articles
+          .filter((article): article is NonNullable<typeof articles.articles>[number] => Boolean(article && typeof article === "object"))
+          .map((article, index) => ({
+            title: typeof article.title === "string" && article.title.length > 0 ? article.title : `SEO article ${index + 1}`,
+            slug: typeof article.slug === "string" && article.slug.length > 0 ? article.slug : `seo-article-${index + 1}`,
+            metaTitle: typeof article.metaTitle === "string" && article.metaTitle.length > 0 ? article.metaTitle : `SEO article ${index + 1}`,
+            metaDescription: typeof article.metaDescription === "string" && article.metaDescription.length > 0 ? article.metaDescription : task.description,
+            outline: Array.isArray(article.outline)
+              ? article.outline.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 6)
+              : [],
+            summary: typeof article.summary === "string" && article.summary.length > 0 ? article.summary : task.description,
+            keywords: Array.isArray(article.keywords)
+              ? article.keywords.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 6)
+              : keywords.slice(0, 6),
+            faq: Array.isArray(article.faq)
+              ? article.faq.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 4)
+              : [],
+          }))
+      : [];
+
+    for (const article of articleList) {
       this.addKnowledge({
         type: "content",
         title: article.title,
-        content: article.body.slice(0, 3000),
+        content: article.summary,
         tags: ["seo", "article", ...article.keywords.slice(0, 5)],
       });
     }
 
-    return { articlesGenerated: articles.articles?.length || 0 };
+    return { articlesGenerated: articleList.length };
   }
 
   private async buildPbn(task: Task): Promise<Record<string, unknown>> {

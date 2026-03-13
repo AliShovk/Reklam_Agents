@@ -166,15 +166,32 @@ Body: ${(content?.body || task.description).slice(0, 2000)}
 CTA: ${content?.callToAction || ""}
 Hashtags: ${JSON.stringify(content?.hashtags || [])}
 
+Keep the response compact:
+- formattedContent: under 1500 characters
+- hashtags: max 8 items
+- targetCommunities: max 5 short names
+- crossPostTo: max 3 platforms
+
 Respond in JSON with keys: platform, formattedContent, bestTimeToPost, hashtags, targetCommunities, crossPostTo, notes`
     );
+
+    const platform = typeof publishPlan.platform === "string" && publishPlan.platform.length > 0 ? publishPlan.platform : channel;
+    const formattedContent = typeof publishPlan.formattedContent === "string" && publishPlan.formattedContent.length > 0
+      ? publishPlan.formattedContent
+      : (content?.body || task.description);
+    const singleTargetCommunity = typeof publishPlan.targetCommunities === "string" ? publishPlan.targetCommunities : "";
+    const targetCommunities = Array.isArray(publishPlan.targetCommunities)
+      ? publishPlan.targetCommunities.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 5)
+      : singleTargetCommunity.length > 0
+        ? [singleTargetCommunity]
+        : [];
 
     this.publishedCount++;
 
     this.addKnowledge({
       type: "content",
       title: `Published on ${channel}: ${content?.title || task.title}`,
-      content: `Published to ${publishPlan.platform}. Communities: ${publishPlan.targetCommunities?.join(", ")}`,
+      content: `Published to ${platform}. Communities: ${targetCommunities.join(", ")}`,
       tags: ["published", channel],
     });
 
@@ -182,9 +199,9 @@ Respond in JSON with keys: platform, formattedContent, bestTimeToPost, hashtags,
 
     return {
       published: true,
-      platform: publishPlan.platform,
-      formattedContent: publishPlan.formattedContent,
-      targetCommunities: publishPlan.targetCommunities,
+      platform,
+      formattedContent,
+      targetCommunities,
     };
   }
 }
