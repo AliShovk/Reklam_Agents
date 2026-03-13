@@ -184,6 +184,8 @@ Important:
 - Prefer direct promotion of the target site or product over generic educational commentary.
 - Keep the offer, differentiator, and CTA visible in the final copy.
 - masterhacks.ru should be presented as a practical source of useful videos for home and household needs.
+- Do not present masterhacks.ru as a tool for content creation, publishing, promotion, scheduling, automation, or audience growth.
+- If the source text is about creating content, publishing, platforms, or marketing, rewrite it into a post about a real home, repair, household, or DIY problem that the videos can help solve.
 - If the source content is generic, rewrite it into promotional copy for ${promotionTarget} or ${offerName}.`,
 
       `Prepare this content for publishing on ${channel}:

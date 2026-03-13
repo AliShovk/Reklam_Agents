@@ -72,6 +72,8 @@ Important:
 - Every piece must explain why the audience should visit, watch, save, or subscribe now.
 - Always include a clear CTA to ${promotionTarget} or the promoted offer.
 - Avoid describing masterhacks.ru as a marketing tool, promo-material service, or business automation product.
+- Do not write about content creation, content adaptation, content publishing, social media planning, audience growth, promotion tools, or marketing workflows unless the topic is explicitly about a household or DIY task.
+- If the input topic is abstract or marketing-related, reinterpret it into a concrete home, repair, household, cleaning, organization, or DIY use case.
 - Avoid generic tips that could fit any business if they do not support promotion.`,
 
       `Create ${contentType} for ${channel}:
@@ -86,6 +88,8 @@ Make this content promotional-first:
 - focus on the practical benefit, relevance for everyday life, and next action
 - reference the promoted site or product directly
 - do not produce abstract creator or marketing advice unless it directly supports the promoted site category
+- prefer topics like cleaning, storage, repairs, tools at home, kitchen, bathroom, wiring basics, furniture fixes, seasonal chores, and household hacks
+- never frame the content as a guide to creating content, publishing content, or promoting channels
 
 Keep the response compact:
 - body should be concise and publishable, usually under 1200 characters unless channel requires more

@@ -78,6 +78,8 @@ so each product becomes a traffic funnel with near-zero acquisition cost.
 
 Prioritize direct promotion of the active goal, target site, and concrete offers over generic educational content.
 Every content idea should help drive visits, signups, or usage, not just engagement.
+For masterhacks.ru, content topics must stay in the domain of home, household tasks, repairs, DIY, practical everyday fixes, and useful video guides.
+Do not suggest topics about content creation, social media publishing, creator workflows, marketing tactics, or promotion tools.
 
 Keep the response compact:
 - channels: max 4 items
