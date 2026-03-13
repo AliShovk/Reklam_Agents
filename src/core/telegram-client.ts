@@ -50,9 +50,13 @@ export class TelegramClient {
     if (this.channelId) log.info(`Channel: ${this.channelId}`);
     if (this.groupId) log.info(`Group: ${this.groupId}`);
 
+    void this.verifyChatAccess();
+  }
+
+  private async verifyChatAccess(): Promise<void> {
     const [channelInfo, groupInfo] = await Promise.all([
-      this.getChannelInfo(),
-      this.getGroupInfo(),
+      this.withTimeout(this.getChannelInfo(), 8000, "channel access check timed out"),
+      this.withTimeout(this.getGroupInfo(), 8000, "group access check timed out"),
     ]);
 
     if (this.channelId) {
@@ -69,6 +73,23 @@ export class TelegramClient {
       } else {
         log.error(`Group access check failed for ${this.groupId}. Verify TELEGRAM_GROUP_ID and ensure the bot is added to the group.`);
       }
+    }
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutLabel: string): Promise<T | null> {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    try {
+      return await Promise.race<T | null>([
+        promise,
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => {
+            log.warn(`Telegram ${timeoutLabel}`);
+            resolve(null);
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
