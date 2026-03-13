@@ -132,6 +132,9 @@ Available agent roles:
 - strategy
 - product
 - discovery
+- analytics
+- experiments
+- acquisition
 - programming
 - content
 - posting
@@ -298,6 +301,9 @@ Available agent roles:
 - strategy: builds marketing strategies
 - product: creates product ideas (calculators, tools, catalogs)
 - discovery: finds public APIs, SDKs, libraries, open-source tools, image/code services, and external technical resources
+- analytics: summarizes metrics, attribution, bottlenecks, and growth signals
+- experiments: designs and evaluates growth experiments and A/B tests
+- acquisition: prioritizes channels, campaigns, and user acquisition playbooks
 - programming: writes code, creates sites, bots, APIs
 - content: creates articles, posts, videos, memes
 - posting: publishes content to social media

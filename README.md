@@ -36,6 +36,10 @@
 | **Supervisor AI** | `supervisor` | Главный мозг. Принимает цели (OKR), дробит на проекты, распределяет задачи |
 | **Strategy Agent** | `strategy` | Строит маркетинговую стратегию, выбирает каналы роста |
 | **Product Agent** | `product` | Создает продукты-воронки под реальный поисковый спрос |
+| **Discovery Agent** | `discovery` | Ищет открытые API, библиотеки, внешние сервисы и growth-инструменты |
+| **Analytics Agent** | `analytics` | Сводит метрики, атрибуцию, bottlenecks и сигналы роста |
+| **Experiments Agent** | `experiments` | Проектирует и оценивает growth-гипотезы и A/B тесты |
+| **Acquisition Agent** | `acquisition` | Планирует каналы привлечения и playbooks роста |
 | **Programming Agent** | `programming` | Пишет код: сайты, лендинги, боты, API, инструменты |
 | **Content Agent** | `content` | Создает контент: статьи, посты, видео-скрипты, мемы |
 | **Posting Agent** | `posting` | Публикует контент в соцсети, форумы, блоги |
@@ -180,6 +184,16 @@ src/
 Это позволяет захватывать трафик на стадии «как посчитать...», где:
 - Стоимость лида → **0**
 - Конкуренция → **минимальная**
+
+## 🧭 Следующий слой роста
+
+В ветке `feature/growth-layer-foundation` заложен foundation для следующего слоя роста:
+
+- `analytics` — measurement и attribution summaries
+- `experiments` — A/B и growth hypothesis engine
+- `acquisition` — channel prioritization и acquisition playbooks
+
+Подробный roadmap: `docs/growth-layer-roadmap.md`
 
 ## 📈 Масштабирование
 

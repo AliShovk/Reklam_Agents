@@ -15,6 +15,9 @@ import { SupervisorAgent } from "./agents/supervisor.js";
 import { StrategyAgent } from "./agents/strategy.js";
 import { ProductAgent } from "./agents/product.js";
 import { DiscoveryAgent } from "./agents/discovery.js";
+import { AnalyticsAgent } from "./agents/analytics.js";
+import { ExperimentsAgent } from "./agents/experiments.js";
+import { AcquisitionAgent } from "./agents/acquisition.js";
 import { ProgrammingAgent } from "./agents/programming.js";
 import { ContentAgent } from "./agents/marketing/content.js";
 import { PostingAgent } from "./agents/marketing/posting.js";
@@ -44,6 +47,9 @@ export class AgentFarm {
       new StrategyAgent(),
       new ProductAgent(),
       new DiscoveryAgent(),
+      new AnalyticsAgent(),
+      new ExperimentsAgent(),
+      new AcquisitionAgent(),
       new ProgrammingAgent(),
       new ContentAgent(),
       new PostingAgent(),
