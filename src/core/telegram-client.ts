@@ -39,10 +39,22 @@ export class TelegramClient {
     this.registerHandlers();
 
     // Запускаем бота в фоне (long polling)
-    await this.bot.launch({ allowedUpdates: ["message"] }).catch((err: any) => {
+    const launchPromise = this.bot.launch({ allowedUpdates: ["message"] });
+    launchPromise.catch((err: any) => {
       log.error(`Telegram bot launch error: ${err.message}`);
-      throw err;
     });
+
+    const launchCompleted = await this.withTimeout(
+      launchPromise.then(() => true),
+      5000,
+      "bot launch confirmation timed out"
+    );
+
+    if (launchCompleted) {
+      log.info("Telegram bot launch confirmed");
+    } else {
+      log.warn("Telegram bot launch confirmation did not complete in time; continuing startup while polling initializes in background");
+    }
 
     this.running = true;
     log.info("Telegram bot started");
