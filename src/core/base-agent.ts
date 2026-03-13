@@ -133,10 +133,19 @@ export abstract class BaseAgent {
 
   // ─── LLM Helpers ─────────────────────────────────────────────────────
 
+  private withDefaultLanguageInstruction(systemPrompt: string): string {
+    return `${systemPrompt.trim()}
+
+Default language policy:
+- Respond in Russian by default.
+- Write user-facing content, posts, strategies, replies, titles, and explanations in natural Russian.
+- Keep JSON keys and technical identifiers in the requested format, but all human-readable values should be in Russian unless the task explicitly requires another language.`;
+  }
+
   protected async think(systemPrompt: string, userMessage: string): Promise<string> {
     const response = await llmChat({
       model: this.identity.model,
-      systemPrompt,
+      systemPrompt: this.withDefaultLanguageInstruction(systemPrompt),
       userMessage,
     });
     this.identity.metrics.tokensUsed += response.tokensUsed;
@@ -146,7 +155,7 @@ export abstract class BaseAgent {
   protected async thinkJson<T = unknown>(systemPrompt: string, userMessage: string): Promise<T> {
     const response = await llmJson<T>({
       model: this.identity.model,
-      systemPrompt,
+      systemPrompt: this.withDefaultLanguageInstruction(systemPrompt),
       userMessage,
     });
     this.identity.metrics.tokensUsed += response.tokensUsed;

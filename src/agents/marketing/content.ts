@@ -44,6 +44,7 @@ export class ContentAgent extends BaseAgent {
       }>;
     }>(
       `You are a Content Creation Agent specialized in ${channel} content.
+Write all human-facing content in Russian.
 
 Content style guide by platform:
 - telegram: Short, punchy, with emojis. Max 4096 chars. Use formatting (**bold**, __italic__).
@@ -71,7 +72,7 @@ Respond in JSON with keys: title, body, callToAction, variations (adaptations fo
 
     const normalizedTitle = typeof content.title === "string" && content.title.length > 0 ? content.title : task.title;
     const normalizedBody = typeof content.body === "string" && content.body.length > 0 ? content.body : task.description;
-    const normalizedCallToAction = typeof content.callToAction === "string" && content.callToAction.length > 0 ? content.callToAction : "Learn more";
+    const normalizedCallToAction = typeof content.callToAction === "string" && content.callToAction.length > 0 ? content.callToAction : "Узнать больше";
     const variations = Array.isArray(content.variations)
       ? content.variations
           .filter((variation): variation is NonNullable<typeof content.variations>[number] => Boolean(variation && typeof variation === "object"))
@@ -128,6 +129,7 @@ Respond in JSON with keys: title, body, callToAction, variations (adaptations fo
       }>;
     }>(
       `You are an SEO Content Writer Agent.
+Write all articles and meta descriptions in Russian.
 Generate high-quality, SEO-optimized articles.
 
 Requirements:

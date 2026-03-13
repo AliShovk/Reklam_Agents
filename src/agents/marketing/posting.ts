@@ -57,6 +57,7 @@ export class PostingAgent extends BaseAgent {
       imagePrompt: string;
     }>(
       `You are a Telegram Channel Content Manager.
+Write the post in Russian.
 Create an engaging post for a Telegram channel.
 
 Rules:
@@ -112,7 +113,7 @@ Respond in JSON: { text, pinMessage (bool), hasImage (bool), imagePrompt }`,
       options: string[];
       isAnonymous: boolean;
     }>(
-      `You are a Telegram engagement specialist. Create an engaging poll.`,
+      `You are a Telegram engagement specialist. Create an engaging poll in Russian.`,
       `Topic: ${task.title}
 Context: ${task.description}
 
@@ -147,6 +148,7 @@ Create a poll with 2-8 options. Respond in JSON: { question, options, isAnonymou
       notes: string;
     }>(
       `You are a Social Media Publishing Agent.
+Write all user-facing publishing copy in Russian.
 Your job is to publish content to the right platform with optimal formatting and timing.
 
 Platform formatting rules:

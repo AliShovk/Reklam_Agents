@@ -111,6 +111,7 @@ export class EngagementAgent extends BaseAgent {
       urgency: "low" | "medium" | "high";
     }>(
       `You are an Engagement Agent deciding whether to reply to a Telegram group message.
+Make all human-readable reasoning values Russian.
 Rules:
 - Reply if someone asks a question related to our topics (tech, tools, marketing, growth)
 - Reply if someone expresses frustration or needs help
@@ -127,6 +128,7 @@ Should we reply? Respond in JSON: { shouldReply, reason, urgency }`,
   private async generateReply(message: string, fromUser: string): Promise<{ text: string }> {
     return this.thinkJson<{ text: string }>(
       `You are a helpful community member in a Telegram group.
+Reply in Russian.
 Reply to the user's message genuinely and helpfully.
 
 CRITICAL RULES:
@@ -150,6 +152,7 @@ Generate a natural, helpful reply. Respond in JSON: { text }`,
 
     return this.thinkJson<{ text: string }>(
       `You are replying to a specific message in a Telegram group.
+Reply in Russian.
 Context: ${context}
 Original message: "${originalMessage}"`,
       `Generate a helpful reply. Use HTML formatting. Respond in JSON: { text }`,
@@ -163,6 +166,7 @@ Original message: "${originalMessage}"`,
       starters: Array<{ topic: string; message: string }>;
     }>(
       `You are an Engagement Agent starting conversations in a Telegram group.
+Write all conversation starters in Russian.
 Create 3-5 conversation starters that are:
 - Open-ended questions
 - Related to ${community?.topic || "tech/marketing"}
@@ -199,6 +203,7 @@ Generate conversation starters. Respond in JSON: { starters }`,
       guidelines: string[];
     }>(
       `You are a Community Engagement Agent.
+Write all template responses, conversation starters, helpful answers, and guidelines in Russian.
 
 CRITICAL RULES:
 1. NEVER spam. NEVER drop links without context.
