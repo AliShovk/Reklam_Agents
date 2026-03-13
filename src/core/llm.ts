@@ -137,6 +137,7 @@ export interface LLMResponse {
   tokensUsed: number;
   model: string;
   durationMs: number;
+  finishReason?: string;
 }
 
 /** Send a chat completion request to the LLM. */
@@ -204,6 +205,7 @@ export async function llmChat(request: LLMRequest): Promise<LLMResponse> {
     });
 
     const content = response.choices[0]?.message?.content || "";
+    const finishReason = response.choices[0]?.finish_reason;
     const tokensUsed =
       (response.usage?.prompt_tokens || 0) + (response.usage?.completion_tokens || 0);
     const durationMs = Date.now() - start;
@@ -214,7 +216,7 @@ export async function llmChat(request: LLMRequest): Promise<LLMResponse> {
         log.warn(`LLM response empty. Finish reason: ${response.choices[0]?.finish_reason}. Raw message: ${JSON.stringify(response.choices[0]?.message)}`);
     }
 
-    return { content, tokensUsed, model, durationMs };
+    return { content, tokensUsed, model, durationMs, finishReason };
   } catch (error: any) {
     log.error(
       `LLM error [${provider}]: ${error.message} (model=${model}, max_tokens=${maxTokens}, jsonMode=${Boolean(
@@ -293,11 +295,13 @@ export async function llmJson<T = unknown>(request: LLMRequest): Promise<{
   model: string;
   durationMs: number;
 }> {
-  const response = await llmChat({
+  const baseRequest: LLMRequest = {
     ...request,
     jsonMode: true,
     systemPrompt: request.systemPrompt + "\n\nRespond ONLY with valid JSON.",
-  });
+  };
+
+  const response = await llmChat(baseRequest);
 
   if (!response.content || response.content.trim() === "") {
       log.error(`LLM returned empty content. Model: ${response.model}, tokens: ${response.tokensUsed}`);
@@ -333,6 +337,29 @@ export async function llmJson<T = unknown>(request: LLMRequest): Promise<{
     return { data, tokensUsed: response.tokensUsed, model: response.model, durationMs: response.durationMs };
   } catch {
     log.error(`Failed to parse LLM JSON: ${response.content.slice(0, 200)}`);
-    throw new Error("LLM returned invalid JSON");
+
+    const retryMaxTokens = Number.parseInt(process.env.LLM_JSON_RETRY_MAX_TOKENS || "", 10);
+    const retryRequest: LLMRequest = {
+      ...baseRequest,
+      temperature: 0,
+      maxTokens: Number.isFinite(retryMaxTokens) && retryMaxTokens > 0 ? retryMaxTokens : undefined,
+      userMessage:
+        baseRequest.userMessage +
+        "\n\nThe previous response was truncated or invalid JSON. Return the FULL valid JSON only. No markdown, no code fences.",
+    };
+
+    if (response.finishReason !== "length") {
+      throw new Error("LLM returned invalid JSON");
+    }
+
+    const retry = await llmChat(retryRequest);
+    try {
+      const jsonText = extractJson(retry.content);
+      const data = JSON.parse(jsonText) as T;
+      return { data, tokensUsed: retry.tokensUsed, model: retry.model, durationMs: retry.durationMs };
+    } catch {
+      log.error(`Failed to parse LLM JSON (retry): ${retry.content.slice(0, 200)}`);
+      throw new Error("LLM returned invalid JSON");
+    }
   }
 }
