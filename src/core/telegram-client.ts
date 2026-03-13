@@ -48,6 +48,27 @@ export class TelegramClient {
 
     if (this.channelId) log.info(`Channel: ${this.channelId}`);
     if (this.groupId) log.info(`Group: ${this.groupId}`);
+
+    const [channelInfo, groupInfo] = await Promise.all([
+      this.getChannelInfo(),
+      this.getGroupInfo(),
+    ]);
+
+    if (this.channelId) {
+      if (channelInfo) {
+        log.info(`Channel access confirmed: ${String(channelInfo.title || channelInfo.id)} (${String(channelInfo.type)})`);
+      } else {
+        log.error(`Channel access check failed for ${this.channelId}. Verify TELEGRAM_CHANNEL_ID and ensure the bot is added to the channel with admin rights.`);
+      }
+    }
+
+    if (this.groupId) {
+      if (groupInfo) {
+        log.info(`Group access confirmed: ${String(groupInfo.title || groupInfo.id)} (${String(groupInfo.type)})`);
+      } else {
+        log.error(`Group access check failed for ${this.groupId}. Verify TELEGRAM_GROUP_ID and ensure the bot is added to the group.`);
+      }
+    }
   }
 
   async stop(): Promise<void> {
