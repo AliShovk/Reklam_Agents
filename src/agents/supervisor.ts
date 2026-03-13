@@ -95,6 +95,109 @@ export class SupervisorAgent extends BaseAgent {
     return { ...this.metrics };
   }
 
+  async handleTelegramDialog(input: {
+    text: string;
+    fromUser: string;
+    chatId: number;
+  }): Promise<{
+    reply: string;
+    createdGoalId?: string;
+    createdTaskId?: string;
+  }> {
+    const decision = await this.thinkJson<{
+      reply: string;
+      action: "reply_only" | "create_goal" | "create_task";
+      goal?: {
+        title: string;
+        description: string;
+        targetMetric: string;
+        targetValue: number;
+      };
+      task?: {
+        type: string;
+        priority: string;
+        title: string;
+        description: string;
+        assignTo: string;
+      };
+    }>(
+      `You are the Supervisor AI talking directly to the owner of the agent farm via Telegram.
+Your job is to understand freeform admin messages and decide whether to:
+- reply with guidance only
+- create a new goal
+- create a new manual task for an agent
+
+Available agent roles:
+- supervisor
+- strategy
+- product
+- programming
+- content
+- posting
+- outreach
+- engagement
+- seo
+- infrastructure
+- observability
+
+Allowed task priorities: critical, high, medium, low
+
+Rules:
+- Reply in Russian.
+- Be concise and operational.
+- If the message is clearly a request to start a new initiative with an outcome/metric, create_goal.
+- If the message is clearly an instruction for a specific agent action, create_task.
+- Otherwise use reply_only.
+- Never invent access credentials or claim that an external action already happened if it only created a task.
+- For create_task, keep title and description compact and actionable.
+- For create_goal, targetValue must be a number.`,
+      `Telegram admin message from ${input.fromUser}:
+${input.text}
+
+Current active goals:
+${JSON.stringify(this.goals.filter((goal) => goal.status === "active").map((goal) => ({ title: goal.title, targetMetric: goal.targetMetric, targetValue: goal.targetValue, currentValue: goal.currentValue })))}
+
+Respond in JSON with keys: reply, action, goal?, task?`
+    );
+
+    let createdGoalId: string | undefined;
+    let createdTaskId: string | undefined;
+
+    if (decision.action === "create_goal" && decision.goal) {
+      const goal = this.addGoal({
+        title: typeof decision.goal.title === "string" && decision.goal.title.length > 0 ? decision.goal.title : `Goal from Telegram`,
+        description: typeof decision.goal.description === "string" && decision.goal.description.length > 0 ? decision.goal.description : input.text,
+        targetMetric: typeof decision.goal.targetMetric === "string" && decision.goal.targetMetric.length > 0 ? decision.goal.targetMetric : "progress",
+        targetValue: Number.isFinite(decision.goal.targetValue) ? decision.goal.targetValue : 1,
+      });
+      createdGoalId = goal.id;
+    }
+
+    if (decision.action === "create_task" && decision.task) {
+      const task = messageQueue.createTask({
+        type: (typeof decision.task.type === "string" && decision.task.type.length > 0 ? decision.task.type : "research") as any,
+        priority: (typeof decision.task.priority === "string" && decision.task.priority.length > 0 ? decision.task.priority : "medium") as any,
+        createdBy: this.identity.id,
+        title: typeof decision.task.title === "string" && decision.task.title.length > 0 ? decision.task.title : `Telegram task from ${input.fromUser}`,
+        description: typeof decision.task.description === "string" && decision.task.description.length > 0 ? decision.task.description : input.text,
+        assignedTo: typeof decision.task.assignTo === "string" && decision.task.assignTo.length > 0 ? decision.task.assignTo : "supervisor",
+        input: {
+          source: "telegram_dialog",
+          chatId: input.chatId,
+          fromUser: input.fromUser,
+          originalMessage: input.text,
+        },
+      });
+      createdTaskId = task.id;
+    }
+
+    return {
+      reply: typeof decision.reply === "string" && decision.reply.length > 0 ? decision.reply : "Принял. Готов продолжать.",
+      createdGoalId,
+      createdTaskId,
+    };
+  }
+
   // ─── Task Execution ──────────────────────────────────────────────────
 
   protected async executeTask(task: Task): Promise<Record<string, unknown>> {

@@ -98,6 +98,10 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
       "/services — список сохранённых сервисов",
       "/call service | action | key=value | ... — реально вызвать сервис",
       "",
+      "Диалоговый режим:",
+      "- любое обычное сообщение в личку боту трактуется как запрос к Supervisor",
+      "- slash-команды продолжают работать как точный режим управления",
+      "",
       "Примеры:",
       "/call wp_main | create_post | title=Тест | content=Привет | status=draft",
       "/call youtube_main | search | q=ремонт кухни | max_results=3",
@@ -233,7 +237,29 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
 
   bot.on("text", async (ctx, next) => {
     const text = "message" in ctx.update && "text" in ctx.update.message ? ctx.update.message.text.trim() : "";
-    if (!text.startsWith("/")) return next();
+    if (text.startsWith("/")) return next();
+    if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
+
+    const chat = ctx.chat;
+    if (!chat || chat.type !== "private") return next();
+
+    try {
+      const result = await farm.getSupervisor().handleTelegramDialog({
+        text,
+        fromUser: ctx.from?.username || ctx.from?.first_name || String(ctx.from?.id || "unknown"),
+        chatId: chat.id,
+      });
+
+      const suffix = [
+        result.createdGoalId ? `Goal: ${result.createdGoalId}` : "",
+        result.createdTaskId ? `Task: ${result.createdTaskId}` : "",
+      ].filter(Boolean).join("\n");
+
+      await ctx.reply([result.reply, suffix].filter(Boolean).join("\n\n"));
+    } catch (err: any) {
+      await ctx.reply(`❌ Не удалось обработать запрос: ${err.message}`);
+    }
+
     return next();
   });
 
