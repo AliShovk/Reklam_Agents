@@ -331,9 +331,60 @@ export async function llmJson<T = unknown>(request: LLMRequest): Promise<{
     return trimmed;
   };
 
+  const repairJson = (raw: string): string => {
+    // Common LLM issue: unescaped newlines inside JSON string values.
+    // This makes the JSON invalid even if it looks correct.
+    // We escape \n/\r/\t only when we are inside a quoted string.
+    let out = "";
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+
+      if (escaped) {
+        out += ch;
+        escaped = false;
+        continue;
+      }
+
+      if (ch === "\\") {
+        out += ch;
+        escaped = true;
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = !inString;
+        out += ch;
+        continue;
+      }
+
+      if (inString) {
+        if (ch === "\n") {
+          out += "\\n";
+          continue;
+        }
+        if (ch === "\r") {
+          out += "\\r";
+          continue;
+        }
+        if (ch === "\t") {
+          out += "\\t";
+          continue;
+        }
+      }
+
+      out += ch;
+    }
+
+    return out;
+  };
+
   try {
     const jsonText = extractJson(response.content);
-    const data = JSON.parse(jsonText) as T;
+    const repaired = repairJson(jsonText);
+    const data = JSON.parse(repaired) as T;
     return { data, tokensUsed: response.tokensUsed, model: response.model, durationMs: response.durationMs };
   } catch {
     log.error(`Failed to parse LLM JSON: ${response.content.slice(0, 200)}`);
@@ -355,7 +406,8 @@ export async function llmJson<T = unknown>(request: LLMRequest): Promise<{
     const retry = await llmChat(retryRequest);
     try {
       const jsonText = extractJson(retry.content);
-      const data = JSON.parse(jsonText) as T;
+      const repaired = repairJson(jsonText);
+      const data = JSON.parse(repaired) as T;
       return { data, tokensUsed: retry.tokensUsed, model: retry.model, durationMs: retry.durationMs };
     } catch {
       log.error(`Failed to parse LLM JSON (retry): ${retry.content.slice(0, 200)}`);
