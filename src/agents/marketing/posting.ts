@@ -167,24 +167,32 @@ CTA: ${content?.callToAction || ""}
 Hashtags: ${JSON.stringify(content?.hashtags || [])}
 
 Keep the response compact:
-- formattedContent: under 1500 characters
+- formattedContent: under 900 characters
+- plain text only, no markdown image syntax, no code blocks, no long lists
 - hashtags: max 8 items
 - targetCommunities: max 5 short names
 - crossPostTo: max 3 platforms
+- notes: under 200 characters
 
 Respond in JSON with keys: platform, formattedContent, bestTimeToPost, hashtags, targetCommunities, crossPostTo, notes`
     );
 
     const platform = typeof publishPlan.platform === "string" && publishPlan.platform.length > 0 ? publishPlan.platform : channel;
     const formattedContent = typeof publishPlan.formattedContent === "string" && publishPlan.formattedContent.length > 0
-      ? publishPlan.formattedContent
-      : (content?.body || task.description);
+      ? publishPlan.formattedContent.slice(0, 900)
+      : String(content?.body || task.description).slice(0, 900);
     const singleTargetCommunity = typeof publishPlan.targetCommunities === "string" ? publishPlan.targetCommunities : "";
     const targetCommunities = Array.isArray(publishPlan.targetCommunities)
       ? publishPlan.targetCommunities.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 5)
       : singleTargetCommunity.length > 0
         ? [singleTargetCommunity]
         : [];
+    const hashtags = Array.isArray(publishPlan.hashtags)
+      ? publishPlan.hashtags.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 8)
+      : [];
+    const bestTimeToPost = typeof publishPlan.bestTimeToPost === "string" && publishPlan.bestTimeToPost.length > 0
+      ? publishPlan.bestTimeToPost
+      : "next peak engagement window";
 
     this.publishedCount++;
 
@@ -201,6 +209,8 @@ Respond in JSON with keys: platform, formattedContent, bestTimeToPost, hashtags,
       published: true,
       platform,
       formattedContent,
+      bestTimeToPost,
+      hashtags,
       targetCommunities,
     };
   }

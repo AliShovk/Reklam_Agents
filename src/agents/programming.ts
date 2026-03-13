@@ -38,14 +38,10 @@ export class ProgrammingAgent extends BaseAgent {
     const code = await this.thinkJson<{
       projectName: string;
       architecture: string;
-      files: Array<{
-        path: string;
-        purpose: string;
-        language: string;
-      }>;
+      files: string[];
       starterFiles: Array<{
         path: string;
-        content: string;
+        summary: string;
       }>;
       buildInstructions: string;
       deployInstructions: string;
@@ -76,36 +72,57 @@ Tech stack: ${JSON.stringify(spec?.techStack || [])}
 Pages: ${JSON.stringify(spec?.pages || [])}
 SEO Keywords: ${JSON.stringify(spec?.seoKeywords || [])}
 
-Return a compact MVP scaffold, not a full production codebase:
-- files: project file map only, with path/purpose/language
-- starterFiles: at most 3 short starter files
-- each starter file content should stay concise
+Return a very compact MVP scaffold, not a full production codebase:
+- architecture: one short paragraph under 300 chars
+- files: max 8 file paths only
+- starterFiles: at most 2 items with path + summary only
+- environmentVars: max 6 items
+- buildInstructions/deployInstructions: one short sentence each
 
-Respond in JSON with keys: projectName, architecture, files (array of {path, purpose, language}), starterFiles (array of {path, content}), buildInstructions, deployInstructions, environmentVars`
+Respond in JSON with keys: projectName, architecture, files, starterFiles, buildInstructions, deployInstructions, environmentVars`
     );
 
     const projectName = typeof code.projectName === "string" && code.projectName.length > 0 ? code.projectName : (spec?.name || task.title);
     const files = Array.isArray(code.files)
-      ? code.files.filter((file): file is NonNullable<typeof code.files>[number] => Boolean(file && typeof file === "object" && typeof file.path === "string" && file.path.length > 0))
+      ? code.files.filter((file): file is string => typeof file === "string" && file.length > 0).slice(0, 8)
       : [];
     const starterFiles = Array.isArray(code.starterFiles)
       ? code.starterFiles
-          .filter((file): file is NonNullable<typeof code.starterFiles>[number] => Boolean(file && typeof file === "object" && typeof file.path === "string" && file.path.length > 0 && typeof file.content === "string"))
-          .slice(0, 3)
+          .filter((file): file is NonNullable<typeof code.starterFiles>[number] => Boolean(file && typeof file === "object" && typeof file.path === "string" && file.path.length > 0))
+          .map((file) => ({
+            path: file.path,
+            summary: typeof file.summary === "string" && file.summary.length > 0 ? file.summary : "Implement this file based on the scaffold.",
+          }))
+          .slice(0, 2)
       : [];
+    const architecture = typeof code.architecture === "string" && code.architecture.length > 0 ? code.architecture : "Frontend + backend MVP scaffold.";
     const buildInstructions = typeof code.buildInstructions === "string" && code.buildInstructions.length > 0 ? code.buildInstructions : "Review the scaffold and implement the remaining files.";
+    const deployInstructions = typeof code.deployInstructions === "string" && code.deployInstructions.length > 0 ? code.deployInstructions : "Deploy after implementing the missing files.";
+    const environmentVars = Array.isArray(code.environmentVars)
+      ? code.environmentVars.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 6)
+      : [];
 
     // Save generated code to knowledge base
     this.addKnowledge({
       type: "code",
       title: `Code: ${projectName}`,
-      content: `Architecture: ${code.architecture || "N/A"}. Files: ${files.map((f) => f.path).join(", ")}. Build: ${buildInstructions}`,
+      content: `Architecture: ${architecture}. Files: ${files.join(", ")}. Build: ${buildInstructions}`,
       tags: ["code", projectName],
     });
 
     this.log.info(`Generated project scaffold: ${projectName} with ${files.length} files`);
 
-    return { code: { ...code, projectName, files, starterFiles, buildInstructions } };
+    return {
+      code: {
+        projectName,
+        architecture,
+        files,
+        starterFiles,
+        buildInstructions,
+        deployInstructions,
+        environmentVars,
+      },
+    };
   }
 
   private async createLanding(task: Task): Promise<Record<string, unknown>> {
