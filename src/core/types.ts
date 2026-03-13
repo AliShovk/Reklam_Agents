@@ -8,6 +8,7 @@ export type AgentRole =
   | "supervisor"
   | "strategy"
   | "product"
+  | "discovery"
   | "programming"
   | "content"
   | "posting"
@@ -72,6 +73,7 @@ export interface Task {
 
 export type TaskType =
   | "research"
+  | "discover_tools"
   | "create_strategy"
   | "create_product"
   | "write_code"

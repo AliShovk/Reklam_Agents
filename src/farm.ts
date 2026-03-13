@@ -14,6 +14,7 @@ import { knowledgeBase } from "./core/knowledge-base.js";
 import { SupervisorAgent } from "./agents/supervisor.js";
 import { StrategyAgent } from "./agents/strategy.js";
 import { ProductAgent } from "./agents/product.js";
+import { DiscoveryAgent } from "./agents/discovery.js";
 import { ProgrammingAgent } from "./agents/programming.js";
 import { ContentAgent } from "./agents/marketing/content.js";
 import { PostingAgent } from "./agents/marketing/posting.js";
@@ -42,6 +43,7 @@ export class AgentFarm {
     const agentInstances = [
       new StrategyAgent(),
       new ProductAgent(),
+      new DiscoveryAgent(),
       new ProgrammingAgent(),
       new ContentAgent(),
       new PostingAgent(),

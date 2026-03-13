@@ -234,6 +234,7 @@ Default language policy:
       supervisor: "strategy",
       strategy: "strategy",
       product: "product",
+      discovery: "research",
       programming: "code",
       content: "content",
       posting: "content",

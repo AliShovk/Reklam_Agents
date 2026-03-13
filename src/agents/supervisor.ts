@@ -131,6 +131,7 @@ Available agent roles:
 - supervisor
 - strategy
 - product
+- discovery
 - programming
 - content
 - posting
@@ -296,6 +297,7 @@ Respond in JSON with keys: assessment, adjustments, newTasks`
 Available agent roles:
 - strategy: builds marketing strategies
 - product: creates product ideas (calculators, tools, catalogs)
+- discovery: finds public APIs, SDKs, libraries, open-source tools, image/code services, and external technical resources
 - programming: writes code, creates sites, bots, APIs
 - content: creates articles, posts, videos, memes
 - posting: publishes content to social media

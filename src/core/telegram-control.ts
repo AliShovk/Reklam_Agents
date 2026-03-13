@@ -10,6 +10,7 @@ const log = createSubLogger("telegram-control");
 
 const ALLOWED_TASK_TYPES: TaskType[] = [
   "research",
+  "discover_tools",
   "create_strategy",
   "create_product",
   "write_code",
@@ -37,6 +38,7 @@ const ALLOWED_AGENT_ROLES: AgentRole[] = [
   "supervisor",
   "strategy",
   "product",
+  "discovery",
   "programming",
   "content",
   "posting",
