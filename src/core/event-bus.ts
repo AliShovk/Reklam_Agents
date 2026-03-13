@@ -1,4 +1,4 @@
-import EventEmitter from "eventemitter3";
+import { EventEmitter } from "eventemitter3";
 import type { FarmEvent } from "./types.js";
 import { createSubLogger } from "./logger.js";
 

@@ -216,12 +216,34 @@ function getDashboardHtml(): string {
   <script>
     const API = '';
 
+    let AUTH_TOKEN = localStorage.getItem('dashboard_auth_token') || '';
+
+    async function apiFetch(path, options) {
+      const opts = options ? { ...options } : {};
+      opts.headers = opts.headers ? { ...opts.headers } : {};
+      if (AUTH_TOKEN) {
+        opts.headers['Authorization'] = 'Bearer ' + AUTH_TOKEN;
+      }
+      let res = await fetch(API + path, opts);
+
+      if (res.status === 401) {
+        const nextToken = prompt('Dashboard token (Bearer):', AUTH_TOKEN || '');
+        if (nextToken) {
+          AUTH_TOKEN = nextToken.trim();
+          localStorage.setItem('dashboard_auth_token', AUTH_TOKEN);
+          opts.headers['Authorization'] = 'Bearer ' + AUTH_TOKEN;
+          res = await fetch(API + path, opts);
+        }
+      }
+      return res;
+    }
+
     async function loadData() {
       try {
         const [status, tasks, events] = await Promise.all([
-          fetch(API + '/api/status').then(r => r.json()),
-          fetch(API + '/api/tasks').then(r => r.json()),
-          fetch(API + '/api/events?limit=20').then(r => r.json()),
+          apiFetch('/api/status').then(r => r.json()),
+          apiFetch('/api/tasks').then(r => r.json()),
+          apiFetch('/api/events?limit=20').then(r => r.json()),
         ]);
         renderStatus(status);
         renderTasks(tasks);
@@ -298,12 +320,12 @@ function getDashboardHtml(): string {
         targetValue: parseInt(document.getElementById('goal-target').value) || 0,
       };
       if (!body.title) return alert('Title required');
-      await fetch(API + '/api/goals', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      await apiFetch('/api/goals', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
       loadData();
     }
 
     async function triggerCycle() {
-      await fetch(API + '/api/trigger-cycle', { method: 'POST' });
+      await apiFetch('/api/trigger-cycle', { method: 'POST' });
       setTimeout(loadData, 1000);
     }
 

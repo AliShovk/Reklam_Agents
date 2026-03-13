@@ -10,8 +10,6 @@ COPY src/ ./src/
 
 RUN npx tsc || true
 
-COPY .env.example .env.example
-
 EXPOSE 3333
 
 CMD ["npx", "tsx", "src/index.ts"]

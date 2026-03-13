@@ -4,6 +4,7 @@
  */
 
 import { logger, loadFarmConfig, initializeLLM, GrowthLoop, eventBus } from "./core/index.js";
+import { initTelegram, getTelegramClient } from "./core/telegram-client.js";
 import { createDashboard } from "./dashboard/server.js";
 import { messageQueue } from "./core/message-queue.js";
 import { knowledgeBase } from "./core/knowledge-base.js";
@@ -65,7 +66,17 @@ export class AgentFarm {
       await initializeLLM();
       log.info("✅ LLM провайдер готов");
 
-      // 2. Запустить supervisor
+      // 2. Инициализировать Telegram бота (если настроен)
+      log.info("🤖 Инициализация Telegram бота...");
+      const telegramClient = initTelegram();
+      if (telegramClient) {
+        await telegramClient.start();
+        log.info("✅ Telegram бот запущен");
+      } else {
+        log.info("ℹ️ Telegram бот не настроен (пропуск)");
+      }
+
+      // 3. Запустить supervisor
       log.info("🤖 Запуск Supervisor агента...");
       await this.supervisor.start();
       this.agents.set(this.supervisor.identity.id, this.supervisor);
@@ -102,6 +113,17 @@ export class AgentFarm {
 
     // Остановить цикл роста
     this.growthLoop.stop();
+
+    // Остановить Telegram бота
+    const telegramClient = getTelegramClient();
+    if (telegramClient) {
+      try {
+        await telegramClient.stop();
+        log.info("✅ Telegram бот остановлен");
+      } catch (err: any) {
+        log.warn(`Failed to stop Telegram bot: ${err.message}`);
+      }
+    }
 
     // Остановить все агенты
     for (const agent of this.agents.values()) {
@@ -178,7 +200,9 @@ async function main() {
   await farm.start();
 }
 
-main().catch((err) => {
-  log.error(`Fatal error: ${err.message}`, err);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    log.error(`Fatal error: ${err.message}`, err);
+    process.exit(1);
+  });
+}

@@ -5,7 +5,7 @@ import { initGigaChat, getGigaChatClient, type GigaChatClient } from "./gigachat
 
 const log = createSubLogger("llm");
 
-type LLMProvider = "openai" | "groq" | "together" | "huggingface" | "ollama" | "mistral" | "gigachat";
+type LLMProvider = "openai" | "openrouter" | "groq" | "together" | "huggingface" | "ollama" | "mistral" | "gigachat";
 
 let _client: OpenAI | null = null;
 let _gigachatClient: GigaChatClient | null = null;
@@ -18,7 +18,13 @@ function detectProvider(): LLMProvider {
   if (process.env.HF_API_KEY) return "huggingface";
   if (process.env.OLLAMA_BASE_URL) return "ollama";
   if (process.env.MISTRAL_API_KEY) return "mistral";
+  if (process.env.OPENAI_BASE_URL?.includes("openrouter.ai")) return "openrouter";
   return "openai";
+}
+
+function isDeepSeekEndpoint(): boolean {
+  const base = process.env.OPENAI_BASE_URL || "";
+  return base.includes("api.deepseek.com");
 }
 
 function getClient(): OpenAI {
@@ -74,8 +80,20 @@ function getClient(): OpenAI {
         log.info("LLM Provider: Mistral AI");
         break;
 
+      case "openrouter":
+        config = {
+          apiKey: process.env.OPENAI_API_KEY,
+          baseURL: process.env.OPENAI_BASE_URL || "https://openrouter.ai/api/v1",
+          defaultHeaders: {
+            "HTTP-Referer": process.env.OPENROUTER_REFERER || "https://reklam.farm",
+            "X-Title": process.env.OPENROUTER_TITLE || "Reklam Agents",
+          },
+        };
+        log.info("LLM Provider: OpenRouter");
+        break;
+
       case "openai":
-      default:
+      default: {
         const baseURL = process.env.OPENAI_BASE_URL || undefined;
         config = {
           apiKey: process.env.OPENAI_API_KEY,
@@ -87,6 +105,7 @@ function getClient(): OpenAI {
           log.info("LLM Provider: OpenAI");
         }
         break;
+      }
     }
 
     _client = new OpenAI(config);
@@ -143,9 +162,28 @@ export async function llmChat(request: LLMRequest): Promise<LLMResponse> {
     model = process.env.OLLAMA_MODEL || "mistral";
   } else if (provider === "mistral" && !request.model) {
     model = "mistral-medium";
+  } else if (provider === "openrouter" && !request.model) {
+    model = process.env.OPENROUTER_MODEL || config.models.default;
   }
 
   const start = Date.now();
+
+  const parseEnvInt = (value: string | undefined): number | null => {
+    if (!value) return null;
+    const n = Number.parseInt(value, 10);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n;
+  };
+
+  const defaultMaxTokens =
+    (provider === "openrouter" ? parseEnvInt(process.env.OPENROUTER_MAX_TOKENS) : null) ??
+    parseEnvInt(process.env.LLM_MAX_TOKENS) ??
+    2048;
+
+  const maxTokens = request.maxTokens ?? defaultMaxTokens;
+
+  const allowResponseFormat =
+    request.jsonMode && provider !== "ollama" && !(provider === "openai" && isDeepSeekEndpoint());
 
   try {
     const response = await getClient().chat.completions.create({
@@ -155,10 +193,8 @@ export async function llmChat(request: LLMRequest): Promise<LLMResponse> {
         { role: "user", content: request.userMessage },
       ],
       temperature: request.temperature ?? 0.7,
-      max_tokens: request.maxTokens ?? 2048,
-      ...(request.jsonMode && provider !== "ollama"
-        ? { response_format: { type: "json_object" } }
-        : {}),
+      max_tokens: maxTokens,
+      ...(allowResponseFormat ? { response_format: { type: "json_object" } } : {}),
     });
 
     const content = response.choices[0]?.message?.content || "";
@@ -168,9 +204,17 @@ export async function llmChat(request: LLMRequest): Promise<LLMResponse> {
 
     log.debug(`LLM response: provider=${provider}, model=${model}, tokens=${tokensUsed}, duration=${durationMs}ms`);
 
+    if (!content && response.choices[0]?.finish_reason !== "stop") {
+        log.warn(`LLM response empty. Finish reason: ${response.choices[0]?.finish_reason}. Raw message: ${JSON.stringify(response.choices[0]?.message)}`);
+    }
+
     return { content, tokensUsed, model, durationMs };
   } catch (error: any) {
-    log.error(`LLM error [${provider}]: ${error.message}`);
+    log.error(
+      `LLM error [${provider}]: ${error.message} (model=${model}, max_tokens=${maxTokens}, jsonMode=${Boolean(
+        request.jsonMode
+      )}, baseURL=${process.env.OPENAI_BASE_URL || ""})`
+    );
     throw error;
   }
 }
@@ -184,6 +228,16 @@ async function llmChatGigaChat(request: LLMRequest): Promise<LLMResponse> {
 
   const model = request.model || process.env.GIGACHAT_MODEL || "GigaChat";
   const start = Date.now();
+
+  const parseEnvInt = (value: string | undefined): number | null => {
+    if (!value) return null;
+    const n = Number.parseInt(value, 10);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n;
+  };
+
+  const defaultMaxTokens = parseEnvInt(process.env.LLM_MAX_TOKENS) ?? 2048;
+  const maxTokens = request.maxTokens ?? defaultMaxTokens;
 
   try {
     const token = gigachat.getAccessToken();
@@ -203,7 +257,7 @@ async function llmChatGigaChat(request: LLMRequest): Promise<LLMResponse> {
           { role: "user", content: request.userMessage },
         ],
         temperature: request.temperature ?? 0.7,
-        max_tokens: request.maxTokens ?? 2048,
+        max_tokens: maxTokens,
       }),
     });
 
@@ -239,8 +293,37 @@ export async function llmJson<T = unknown>(request: LLMRequest): Promise<{
     systemPrompt: request.systemPrompt + "\n\nRespond ONLY with valid JSON.",
   });
 
+  if (!response.content || response.content.trim() === "") {
+      log.error(`LLM returned empty content. Model: ${response.model}, tokens: ${response.tokensUsed}`);
+      throw new Error("LLM returned empty response instead of JSON");
+  }
+
+  const extractJson = (raw: string): string => {
+    const trimmed = raw.trim();
+
+    const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fenceMatch?.[1]) {
+      return fenceMatch[1].trim();
+    }
+
+    const firstBrace = trimmed.indexOf("{");
+    const lastBrace = trimmed.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      return trimmed.slice(firstBrace, lastBrace + 1);
+    }
+
+    const firstBracket = trimmed.indexOf("[");
+    const lastBracket = trimmed.lastIndexOf("]");
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      return trimmed.slice(firstBracket, lastBracket + 1);
+    }
+
+    return trimmed;
+  };
+
   try {
-    const data = JSON.parse(response.content) as T;
+    const jsonText = extractJson(response.content);
+    const data = JSON.parse(jsonText) as T;
     return { data, tokensUsed: response.tokensUsed, model: response.model, durationMs: response.durationMs };
   } catch {
     log.error(`Failed to parse LLM JSON: ${response.content.slice(0, 200)}`);

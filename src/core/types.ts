@@ -89,7 +89,10 @@ export type TaskType =
   | "create_tool"
   | "generate_articles"
   | "build_pbn"
-  | "interlink";
+  | "interlink"
+  | "telegram_post"
+  | "telegram_engage"
+  | "telegram_poll";
 
 // ============================================================================
 // Goal & Strategy Types
@@ -277,7 +280,9 @@ export type FarmEvent =
   | { type: "product:launched"; product: ProductIdea }
   | { type: "content:published"; content: ContentItem }
   | { type: "alert:agent_error"; agentId: string; error: string }
-  | { type: "alert:rate_limit"; agentId: string; provider: string };
+  | { type: "alert:rate_limit"; agentId: string; provider: string }
+  | { type: "telegram:posted"; channelId: string; messageId: number }
+  | { type: "telegram:group_message"; groupId: string; messageId: number; text: string };
 
 // ============================================================================
 // Config Schema

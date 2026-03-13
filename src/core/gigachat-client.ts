@@ -61,7 +61,11 @@ export class GigaChatClient {
         throw new Error(`GigaChat OAuth error: ${response.status} ${response.statusText}`);
       }
 
-      const data: GigaChatTokenResponse = await response.json();
+      const raw = (await response.json()) as unknown;
+      const data = raw as GigaChatTokenResponse;
+      if (!data?.access_token || typeof data.access_token !== "string" || typeof data.expires_at !== "number") {
+        throw new Error("GigaChat OAuth error: invalid token response");
+      }
       this.token = data.access_token;
       this.tokenExpiresAt = data.expires_at;
 
