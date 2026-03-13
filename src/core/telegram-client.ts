@@ -39,8 +39,9 @@ export class TelegramClient {
     this.registerHandlers();
 
     // Запускаем бота в фоне (long polling)
-    this.bot.launch().catch((err: any) => {
+    await this.bot.launch({ allowedUpdates: ["message"] }).catch((err: any) => {
       log.error(`Telegram bot launch error: ${err.message}`);
+      throw err;
     });
 
     this.running = true;
@@ -265,6 +266,20 @@ export class TelegramClient {
   }
 
   private registerHandlers(): void {
+    this.bot.catch((err: any, ctx: Context) => {
+      const chatId = ctx.chat?.id ? String(ctx.chat.id) : "unknown";
+      log.error(`Telegram update handler error in chat ${chatId}: ${err.message}`);
+    });
+
+    this.bot.on("text", async (ctx: Context, next) => {
+      const chat = ctx.chat;
+      const message = ctx.message;
+      if (chat && message && "text" in message && typeof message.text === "string") {
+        log.info(`Incoming Telegram text: chat=${chat.id} type=${chat.type} from=${message.from?.username || message.from?.first_name || "unknown"} text=${message.text.slice(0, 120)}`);
+      }
+      return next();
+    });
+
     // Обработка текстовых сообщений в группе
     this.bot.on("text", async (ctx: Context) => {
       const chat = ctx.chat;

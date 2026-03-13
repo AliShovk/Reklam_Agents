@@ -71,8 +71,8 @@ export class AgentFarm {
       log.info("🤖 Инициализация Telegram бота...");
       const telegramClient = initTelegram();
       if (telegramClient) {
-        await telegramClient.start();
         setupTelegramControl(telegramClient.getBotInstance(), this);
+        await telegramClient.start();
         log.info("✅ Telegram бот запущен");
       } else {
         log.info("ℹ️ Telegram бот не настроен (пропуск)");
