@@ -4,6 +4,7 @@ import { messageQueue } from "./message-queue.js";
 import { knowledgeBase } from "./knowledge-base.js";
 import { eventBus } from "./event-bus.js";
 import { llmChat, llmJson, type LLMRequest } from "./llm.js";
+import { getConfig } from "./config.js";
 import { createAgentLogger } from "./logger.js";
 import type { Logger } from "winston";
 
@@ -20,12 +21,13 @@ export abstract class BaseAgent {
     description: string;
     model?: string;
   }) {
+    const config = getConfig();
     this.identity = {
       id: `${params.role}-${uuid().slice(0, 8)}`,
       role: params.role,
       name: params.name,
       description: params.description,
-      model: params.model || "gpt-4o",
+      model: params.model || config.models.default,
       status: "idle",
       createdAt: new Date(),
       lastActiveAt: new Date(),

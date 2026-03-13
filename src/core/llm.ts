@@ -180,7 +180,13 @@ export async function llmChat(request: LLMRequest): Promise<LLMResponse> {
     parseEnvInt(process.env.LLM_MAX_TOKENS) ??
     2048;
 
-  const maxTokens = request.maxTokens ?? defaultMaxTokens;
+  const defaultJsonMaxTokens =
+    parseEnvInt(process.env.LLM_JSON_MAX_TOKENS) ??
+    defaultMaxTokens;
+
+  const maxTokens =
+    request.maxTokens ??
+    (request.jsonMode ? defaultJsonMaxTokens : defaultMaxTokens);
 
   const allowResponseFormat =
     request.jsonMode && provider !== "ollama" && !(provider === "openai" && isDeepSeekEndpoint());
