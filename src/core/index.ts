@@ -10,3 +10,4 @@ export { llmChat, llmJson, initializeLLM } from "./llm.js";
 export { BaseAgent } from "./base-agent.js";
 export { GrowthLoop } from "./growth-loop.js";
 export { initTelegram, getTelegramClient } from "./telegram-client.js";
+export { runtimeSettings } from "./runtime-settings.js";

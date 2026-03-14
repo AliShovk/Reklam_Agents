@@ -1,6 +1,7 @@
 import { BaseAgent } from "../../core/base-agent.js";
 import { getTelegramClient } from "../../core/telegram-client.js";
 import { eventBus } from "../../core/event-bus.js";
+import { runtimeSettings } from "../../core/runtime-settings.js";
 import type { Task, GrowthChannel } from "../../core/types.js";
 
 /**
@@ -12,6 +13,7 @@ import type { Task, GrowthChannel } from "../../core/types.js";
  */
 export class PostingAgent extends BaseAgent {
   private publishedCount = 0;
+  private lastTelegramPostAt = 0;
 
   constructor() {
     super({
@@ -45,6 +47,21 @@ export class PostingAgent extends BaseAgent {
     if (!tg) {
       this.log.warn("Telegram client not available, generating content only");
       return this.publishContent(task);
+    }
+
+    const settings = runtimeSettings.get();
+    const now = Date.now();
+    const nextAllowedAt = this.lastTelegramPostAt + settings.telegramMinPostIntervalMs;
+    if (this.lastTelegramPostAt > 0 && now < nextAllowedAt) {
+      const waitMs = nextAllowedAt - now;
+      this.log.warn(`Skipping Telegram post due to min interval. Wait ${Math.ceil(waitMs / 60000)} min`);
+      return {
+        published: false,
+        skipped: true,
+        reason: "telegram_rate_limited",
+        waitMs,
+        platform: "telegram",
+      };
     }
 
     const content = task.input.content as any;
@@ -97,6 +114,7 @@ Respond in JSON: { text, pinMessage (bool), hasImage (bool), imagePrompt }`,
     });
 
     if (result.ok) {
+      this.lastTelegramPostAt = Date.now();
       this.publishedCount++;
       eventBus.emit({
         type: "telegram:posted",
@@ -145,104 +163,20 @@ Create a poll with 2-8 options. Respond in JSON: { question, options, isAnonymou
   private async publishContent(task: Task): Promise<Record<string, unknown>> {
     const content = task.input.content as any;
     const channel = (task.input.channel as GrowthChannel) || "telegram";
-    const promotionTarget = typeof content?.targetSite === "string" && content.targetSite.length > 0
-      ? content.targetSite
-      : "masterhacks.ru";
-    const offerName = typeof content?.offerName === "string" && content.offerName.length > 0
-      ? content.offerName
-      : "полезные видео для дома и хозяйства на masterhacks.ru";
 
     // Если канал — Telegram и клиент доступен, публикуем реально
     if (channel === "telegram" && getTelegramClient()) {
       return this.telegramPost(task);
     }
 
-    const publishPlan = await this.thinkJson<{
-      platform: string;
-      formattedContent: string;
-      bestTimeToPost: string;
-      hashtags: string[];
-      targetCommunities: string[];
-      crossPostTo: string[];
-      notes: string;
-    }>(
-      `You are a Social Media Publishing Agent.
-Write all user-facing publishing copy in Russian.
-Your job is to publish content to the right platform with optimal formatting and timing.
-
-Platform formatting rules:
-- telegram: Markdown, emojis, short paragraphs, max 4096 chars
-- reddit: Title + body. No self-promo in title. Flair selection. 
-- medium: Full article with images, headers, code blocks
-- twitter: Thread of 280-char tweets. Hook first.
-- youtube: Title, description, tags for video publishing
-- linkedin: Professional with personal story angle
-- tiktok: Caption with hooks and trending hashtags
-- forums: Contextual, helpful reply format
-
-Important:
-- Prefer direct promotion of the target site or product over generic educational commentary.
-- Keep the offer, differentiator, and CTA visible in the final copy.
-- masterhacks.ru should be presented as a practical source of useful videos for home and household needs.
-- Do not present masterhacks.ru as a tool for content creation, publishing, promotion, scheduling, automation, or audience growth.
-- If the source text is about creating content, publishing, platforms, or marketing, rewrite it into a post about a real home, repair, household, or DIY problem that the videos can help solve.
-- If the source content is generic, rewrite it into promotional copy for ${promotionTarget} or ${offerName}.`,
-
-      `Prepare this content for publishing on ${channel}:
-
-Title: ${content?.title || task.title}
-Body: ${(content?.body || task.description).slice(0, 2000)}
-CTA: ${content?.callToAction || ""}
-Hashtags: ${JSON.stringify(content?.hashtags || [])}
-Promoted site: ${promotionTarget}
-Promoted offer: ${offerName}
-
-Keep the response compact:
-- formattedContent: under 900 characters
-- plain text only, no markdown image syntax, no code blocks, no long lists
-- hashtags: max 8 items
-- targetCommunities: max 5 short names
-- crossPostTo: max 3 platforms
-- notes: under 200 characters
-
-Respond in JSON with keys: platform, formattedContent, bestTimeToPost, hashtags, targetCommunities, crossPostTo, notes`
-    );
-
-    const platform = typeof publishPlan.platform === "string" && publishPlan.platform.length > 0 ? publishPlan.platform : channel;
-    const formattedContent = typeof publishPlan.formattedContent === "string" && publishPlan.formattedContent.length > 0
-      ? publishPlan.formattedContent.slice(0, 900)
-      : String(content?.body || task.description).slice(0, 900);
-    const singleTargetCommunity = typeof publishPlan.targetCommunities === "string" ? publishPlan.targetCommunities : "";
-    const targetCommunities = Array.isArray(publishPlan.targetCommunities)
-      ? publishPlan.targetCommunities.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 5)
-      : singleTargetCommunity.length > 0
-        ? [singleTargetCommunity]
-        : [];
-    const hashtags = Array.isArray(publishPlan.hashtags)
-      ? publishPlan.hashtags.filter((item): item is string => typeof item === "string" && item.length > 0).slice(0, 8)
-      : [];
-    const bestTimeToPost = typeof publishPlan.bestTimeToPost === "string" && publishPlan.bestTimeToPost.length > 0
-      ? publishPlan.bestTimeToPost
-      : "next peak engagement window";
-
-    this.publishedCount++;
-
-    this.addKnowledge({
-      type: "content",
-      title: `Published on ${channel}: ${content?.title || task.title}`,
-      content: `Published to ${platform}. Communities: ${targetCommunities.join(", ")}`,
-      tags: ["published", channel],
-    });
-
-    this.log.info(`Published content to ${channel}: ${content?.title || task.title}`);
+    this.log.warn(`No real publisher configured for channel ${channel}. Skipping live publication for task: ${task.title}`);
 
     return {
-      published: true,
-      platform,
-      formattedContent,
-      bestTimeToPost,
-      hashtags,
-      targetCommunities,
+      published: false,
+      skipped: true,
+      reason: "publisher_not_configured",
+      platform: channel,
+      title: task.title,
     };
   }
 }

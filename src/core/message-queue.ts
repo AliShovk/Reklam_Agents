@@ -146,6 +146,13 @@ class MessageQueue {
     return Array.from(this.queues.values()).flat();
   }
 
+  getPendingCount(queueName?: string): number {
+    if (queueName) {
+      return (this.queues.get(queueName) || []).length;
+    }
+    return Array.from(this.queues.values()).reduce((sum, queue) => sum + queue.length, 0);
+  }
+
   getRecentCompleted(limit = 20): Task[] {
     return this.completed.slice(-limit);
   }

@@ -1,6 +1,7 @@
 import { messageQueue } from "./message-queue.js";
 import { eventBus } from "./event-bus.js";
 import { createSubLogger } from "./logger.js";
+import { runtimeSettings } from "./runtime-settings.js";
 import type { GrowthCycleState, GrowthPhase } from "./types.js";
 
 const log = createSubLogger("growth-loop");
@@ -143,6 +144,12 @@ export class GrowthLoop {
   }
 
   private phaseContentCreation(): void {
+    const settings = runtimeSettings.get();
+    if (messageQueue.getPendingCount("content") >= settings.contentQueueSoftLimit) {
+      log.warn(`Skipping content_creation phase due to backlog: content=${messageQueue.getPendingCount("content")}`);
+      return;
+    }
+
     messageQueue.createTask({
       type: "create_content",
       priority: "medium",
@@ -155,6 +162,12 @@ export class GrowthLoop {
   }
 
   private phasePublishing(): void {
+    const settings = runtimeSettings.get();
+    if (messageQueue.getPendingCount("posting") >= settings.postingQueueSoftLimit) {
+      log.warn(`Skipping publishing phase due to backlog: posting=${messageQueue.getPendingCount("posting")}`);
+      return;
+    }
+
     messageQueue.createTask({
       type: "publish_content",
       priority: "medium",
@@ -167,6 +180,12 @@ export class GrowthLoop {
   }
 
   private phaseUserAcquisition(): void {
+    const settings = runtimeSettings.get();
+    if (messageQueue.getPendingCount("outreach") >= settings.outreachQueueSoftLimit) {
+      log.warn(`Skipping user_acquisition phase due to backlog: outreach=${messageQueue.getPendingCount("outreach")}`);
+      return;
+    }
+
     messageQueue.createTask({
       type: "outreach",
       priority: "medium",

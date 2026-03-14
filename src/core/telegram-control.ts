@@ -3,6 +3,7 @@ import type { AgentFarm } from "../farm.js";
 import { createSubLogger } from "./logger.js";
 import { executeServiceCall } from "./service-executor.js";
 import { messageQueue } from "./message-queue.js";
+import { runtimeSettings } from "./runtime-settings.js";
 import { serviceRegistry } from "./service-registry.js";
 import type { AgentRole, TaskPriority, TaskType } from "./types.js";
 
@@ -96,6 +97,25 @@ function getCommandText(ctx: Context): string {
   return "message" in ctx.update && "text" in ctx.update.message ? ctx.update.message.text : "";
 }
 
+function tryApplyRuntimeSettingsFromText(text: string): { applied: boolean; reply?: string } {
+  const normalized = text.toLowerCase();
+  const frequencyIntent = /(публикац|телеграм|telegram)/.test(normalized) && /(реже|не чаще|1 раз)/.test(normalized);
+  const minutesMatch = normalized.match(/(\d+)\s*мин/);
+
+  if (frequencyIntent && minutesMatch) {
+    const minutes = Number.parseInt(minutesMatch[1], 10);
+    if (Number.isFinite(minutes) && minutes > 0) {
+      const updated = runtimeSettings.update({ telegramMinPostIntervalMs: minutes * 60_000 });
+      return {
+        applied: true,
+        reply: `✅ Ограничение применено: Telegram-публикации не чаще 1 раза в ${Math.round(updated.telegramMinPostIntervalMs / 60000)} минут.`,
+      };
+    }
+  }
+
+  return { applied: false };
+}
+
 export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
   bot.command("help", async (ctx) => {
     if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
@@ -104,6 +124,7 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
       "/status — статус фермы",
       "/goal title | description | metric | targetValue — создать goal",
       "/task role | type | priority | title | description — создать задачу агенту",
+      "/settings telegram_interval_minutes=30 | content_queue_soft_limit=40 | posting_queue_soft_limit=20 | outreach_queue_soft_limit=10 — изменить runtime-лимиты",
       "/service service | key | value | description — сохранить доступ/API",
       "/services — список сохранённых сервисов",
       "/call service | action | key=value | ... — реально вызвать сервис",
@@ -125,6 +146,7 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
     if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
     const status = farm.getStatus();
     const queueStats = messageQueue.getQueueStats();
+    const settings = runtimeSettings.get();
     await ctx.reply([
       `✅ Ферма активна`,
       `Агенты: ${status.agents.length}`,
@@ -133,7 +155,41 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
       `Ошибок: ${status.failed}`,
       `Активных целей: ${status.goals.filter((goal: any) => goal.status === "active").length}`,
       `Очереди: ${Object.entries(queueStats).map(([name, count]) => `${name}=${count}`).join(", ") || "пусто"}`,
+      `Лимиты: telegram=${Math.round(settings.telegramMinPostIntervalMs / 60000)}м, content=${settings.contentQueueSoftLimit}, posting=${settings.postingQueueSoftLimit}, outreach=${settings.outreachQueueSoftLimit}`,
     ].join("\n"));
+  });
+
+  bot.command("settings", async (ctx) => {
+    if (!isAuthorized(ctx)) return replyUnauthorized(ctx);
+    const text = getCommandText(ctx);
+    const payload = text.replace(/^\/settings(@\w+)?\s*/i, "");
+    const pairs = parsePairs(payload);
+    const patch: Record<string, number> = {};
+
+    if (pairs.telegram_interval_minutes) {
+      const value = Number.parseInt(pairs.telegram_interval_minutes, 10);
+      if (Number.isFinite(value) && value > 0) patch.telegramMinPostIntervalMs = value * 60_000;
+    }
+    if (pairs.content_queue_soft_limit) {
+      const value = Number.parseInt(pairs.content_queue_soft_limit, 10);
+      if (Number.isFinite(value) && value > 0) patch.contentQueueSoftLimit = value;
+    }
+    if (pairs.posting_queue_soft_limit) {
+      const value = Number.parseInt(pairs.posting_queue_soft_limit, 10);
+      if (Number.isFinite(value) && value > 0) patch.postingQueueSoftLimit = value;
+    }
+    if (pairs.outreach_queue_soft_limit) {
+      const value = Number.parseInt(pairs.outreach_queue_soft_limit, 10);
+      if (Number.isFinite(value) && value > 0) patch.outreachQueueSoftLimit = value;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      await ctx.reply("Формат: /settings telegram_interval_minutes=30 | content_queue_soft_limit=40 | posting_queue_soft_limit=20 | outreach_queue_soft_limit=10");
+      return;
+    }
+
+    const updated = runtimeSettings.update(patch);
+    await ctx.reply(`✅ Runtime-лимиты обновлены:\ntelegram=${Math.round(updated.telegramMinPostIntervalMs / 60000)}м\ncontent=${updated.contentQueueSoftLimit}\nposting=${updated.postingQueueSoftLimit}\noutreach=${updated.outreachQueueSoftLimit}`);
   });
 
   bot.command("goal", async (ctx) => {
@@ -252,6 +308,12 @@ export function setupTelegramControl(bot: Telegraf, farm: AgentFarm): void {
 
     const chat = ctx.chat;
     if (!chat || chat.type !== "private") return next();
+
+    const settingsResult = tryApplyRuntimeSettingsFromText(text);
+    if (settingsResult.applied) {
+      await ctx.reply(settingsResult.reply || "✅ Настройки обновлены.");
+      return next();
+    }
 
     try {
       const result = await farm.getSupervisor().handleTelegramDialog({
